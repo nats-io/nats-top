@@ -46,6 +46,13 @@ func main() {
 		usage()
 	}
 
+	// Smoke test the server once before starting
+	result, err := Request("/varz", opts)
+	if err != nil {
+		log.Fatalf("Could not get /varz: %v", err)
+		os.Exit(1)
+	}
+
 	sigch := make(chan os.Signal)
 	signal.Notify(sigch, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	clearScreen()
