@@ -2,61 +2,21 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
-	"net/http"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/nats-io/gnatsd/server"
+	. "github.com/nats-io/nats-top/util"
 )
-
-func request(path string, opts map[string]interface{}) (map[string]interface{}, error) {
-	var statz map[string]interface{}
-	uri := fmt.Sprintf("http://%s:%d%s", opts["host"], opts["port"], path)
-
-	if path == "/connz" {
-		uri += fmt.Sprintf("?n=%d&s=%s", opts["conns"], opts["sort"])
-	}
-
-	resp, err := http.Get(uri)
-	if err != nil {
-		return nil, fmt.Errorf("error fetching %s: %v", path, err)
-	}
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("error reading stat from upstream: %s", err)
-	}
-
-	err = json.Unmarshal(body, &statz)
-	if err != nil {
-		return nil, fmt.Errorf("error unmarshaling json: %v", err)
-	}
-
-	return statz, nil
-}
 
 func usage() {
 	log.Fatalf("Usage: nats-top [-s server] [-m monitor] [-n num_connections] [-d delay_secs]\n")
-}
-
-func psize(size float64) string {
-	if size < 1024 {
-		return fmt.Sprintf("%.1f", size)
-	} else if size < (1024 * 1024) {
-		return fmt.Sprintf("%.1fK", size/1024)
-	} else if size < (1024 * 1024 * 1024) {
-		return fmt.Sprintf("%.1fM", size/1024/1024)
-	} else if size > (1024 * 1024 * 1024) {
-		return fmt.Sprintf("%.1fG", size/1024/1024/1024)
-	} else {
-		return "NA"
-	}
 }
 
 var (
@@ -82,12 +42,13 @@ func main() {
 	opts["sort"] = *sort
 
 	if opts["host"] == nil || opts["port"] == nil {
-		log.Fatalf("Please specify the monitoring port for NATS: -m PORT")
+		log.Fatalf("Please specify the monitoring port for NATS.")
 		usage()
 	}
 
 	sigch := make(chan os.Signal)
 	signal.Notify(sigch, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+	clearScreen()
 	go StartSimpleUI(opts)
 
 	select {
@@ -104,20 +65,20 @@ func clearScreen() {
 func StartSimpleUI(opts map[string]interface{}) {
 	var pollTime time.Time
 
-	var inMsgsDelta float64
-	var outMsgsDelta float64
-	var inBytesDelta float64
-	var outBytesDelta float64
+	var inMsgsDelta int64
+	var outMsgsDelta int64
+	var inBytesDelta int64
+	var outBytesDelta int64
 
-	inMsgsLastVal := 0.0
-	outMsgsLastVal := 0.0
-	inBytesLastVal := 0.0
-	outBytesLastVal := 0.0
+	var inMsgsLastVal int64
+	var outMsgsLastVal int64
+	var inBytesLastVal int64
+	var outBytesLastVal int64
 
-	inMsgsRate := 0.0
-	outMsgsRate := 0.0
-	inBytesRate := 0.0
-	outBytesRate := 0.0
+	var inMsgsRate float64
+	var outMsgsRate float64
+	var inBytesRate float64
+	var outBytesRate float64
 
 	first := true
 	pollTime = time.Now()
@@ -126,38 +87,46 @@ func StartSimpleUI(opts map[string]interface{}) {
 		wg.Add(2)
 
 		// Periodically poll for the varz, connz and routez
-		var varz map[string]interface{}
+		var varz *server.Varz
 		go func() {
 			var err error
 			defer wg.Done()
 
-			varz, err = request("/varz", opts)
+			result, err := Request("/varz", opts)
 			if err != nil {
-				log.Fatalf("Failed during varz processing: %v", err)
+				log.Fatalf("Could not get /varz: %v", err)
+			}
+
+			if varzVal, ok := result.(*server.Varz); ok {
+				varz = varzVal
 			}
 		}()
 
-		var connz map[string]interface{}
+		var connz *server.Connz
 		go func() {
 			var err error
 			defer wg.Done()
 
-			connz, err = request("/connz", opts)
+			result, err := Request("/connz", opts)
 			if err != nil {
-				log.Fatalf("Failed during connz processing: %v", err)
+				log.Fatalf("Could not get /connz: %v", err)
+			}
+
+			if connzVal, ok := result.(*server.Connz); ok {
+				connz = connzVal
 			}
 		}()
 		wg.Wait()
 
-		cpu := varz["cpu"].(float64)
-		numConns := connz["num_connections"].(float64)
-		memVal := varz["mem"].(float64)
+		cpu := varz.CPU
+		numConns := connz.NumConns
+		memVal := varz.Mem
 
 		// Periodic snapshot to get per sec metrics
-		inMsgsVal := varz["in_msgs"].(float64)
-		outMsgsVal := varz["out_msgs"].(float64)
-		inBytesVal := varz["in_bytes"].(float64)
-		outBytesVal := varz["out_bytes"].(float64)
+		inMsgsVal := varz.InMsgs
+		outMsgsVal := varz.OutMsgs
+		inBytesVal := varz.InBytes
+		outBytesVal := varz.OutBytes
 
 		inMsgsDelta = inMsgsVal - inMsgsLastVal
 		outMsgsDelta = outMsgsVal - outMsgsLastVal
@@ -175,42 +144,36 @@ func StartSimpleUI(opts map[string]interface{}) {
 
 		// Calculate rates but the first time
 		if !first {
-			inMsgsRate = inMsgsDelta - tdelta.Seconds()
-			outMsgsRate = outMsgsDelta - tdelta.Seconds()
-			inBytesRate = inBytesDelta - tdelta.Seconds()
-			outBytesRate = outBytesDelta - tdelta.Seconds()
+			inMsgsRate = float64(inMsgsDelta) - tdelta.Seconds()
+			outMsgsRate = float64(outMsgsDelta) - tdelta.Seconds()
+			inBytesRate = float64(inBytesDelta) - tdelta.Seconds()
+			outBytesRate = float64(outBytesDelta) - tdelta.Seconds()
 		}
 
-		mem := psize(memVal)
-		inMsgs := psize(inMsgsVal)
-		outMsgs := psize(outMsgsVal)
-		inBytes := psize(inBytesVal)
-		outBytes := psize(outBytesVal)
+		mem := Psize(memVal)
+		inMsgs := Psize(inMsgsVal)
+		outMsgs := Psize(outMsgsVal)
+		inBytes := Psize(inBytesVal)
+		outBytes := Psize(outBytesVal)
 
-		info := "\nServer:\n  Load: CPU: %.1f%% Memory: %s\n"
+		info := "\nServer:\n  Load: CPU: %.1f%%  Memory: %s\n"
 		info += "  In:   Msgs: %s  Bytes: %s  Msgs/Sec: %.1f  Bytes/Sec: %.1f\n"
 		info += "  Out:  Msgs: %s  Bytes: %s  Msgs/Sec: %.1f  Bytes/Sec: %.1f"
 
 		text := fmt.Sprintf(info, cpu, mem,
 			inMsgs, inBytes, inMsgsRate, inBytesRate,
 			outMsgs, outBytes, outMsgsRate, outBytesRate)
-		text += fmt.Sprintf("\n\nConnections: %.0f\n", numConns)
+		text += fmt.Sprintf("\n\nConnections: %d\n", numConns)
 
 		connHeader := "  %-20s %-8s %-6s  %-10s  %-10s  %-10s  %-10s  %-10s\n"
 		connRows := fmt.Sprintf(connHeader, "HOST", "CID", "SUBS", "PENDING", "MSGS_TO", "MSGS_FROM", "BYTES_TO", "BYTES_FROM")
 		text += connRows
 
-		connValues := "  %-20s %-8.0f %-6.0f  %-10.0f  %-10s  %-10s  %-10s  %-10s\n"
-		conns := connz["connections"].([]interface{})
-		for _, conn := range conns {
-			c := conn.(map[string]interface{})
-			host := fmt.Sprintf("%s:%.0f", c["ip"], c["port"])
-			connOutMsgs := c["out_msgs"].(float64)
-			connInMsgs := c["in_msgs"].(float64)
-			connOutBytes := c["out_bytes"].(float64)
-			connInBytes := c["in_bytes"].(float64)
-			connLine := fmt.Sprintf(connValues, host, c["cid"], c["subscriptions"], c["pending_size"],
-				psize(connOutMsgs), psize(connInMsgs), psize(connOutBytes), psize(connInBytes))
+		connValues := "  %-20s %-8d %-6d  %-10d  %-10s  %-10s  %-10s  %-10s\n"
+		for _, conn := range connz.Conns {
+			host := fmt.Sprintf("%s:%d", conn.IP, conn.Port)
+			connLine := fmt.Sprintf(connValues, host, conn.Cid, conn.NumSubs, conn.Pending,
+				Psize(conn.OutMsgs), Psize(conn.InMsgs), Psize(conn.OutBytes), Psize(conn.InBytes))
 			text += connLine
 		}
 		fmt.Print(text)
