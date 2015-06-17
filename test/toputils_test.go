@@ -48,7 +48,7 @@ func TestFetchingStatz(t *testing.T) {
 		connz = connzVal
 	}
 
-	// At the very least it is guaranteed that we have one core
+	// Check for default value of connections limit
 	got = connz.Limit
 	if got != 1024 {
 		t.Fatalf("Could not monitor limit of connections. got: %v", got)
