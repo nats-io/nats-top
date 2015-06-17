@@ -47,9 +47,9 @@ func main() {
 	}
 
 	// Smoke test the server once before starting
-	result, err := Request("/varz", opts)
+	_, err := Request("/varz", opts)
 	if err != nil {
-		log.Fatalf("Could not get /varz: %v", err)
+		log.Fatalf("ERROR: %v", err)
 		os.Exit(1)
 	}
 
