@@ -103,7 +103,7 @@ func Request(path string, opts map[string]interface{}) (interface{}, error) {
 		statz = &server.Varz{}
 	case "/connz":
 		statz = &server.Connz{}
-		uri += fmt.Sprintf("?n=%d&s=%s", opts["conns"], opts["sort"])
+		uri += fmt.Sprintf("?limit=%d&s=%s", opts["conns"], opts["sort"])
 	default:
 		return nil, fmt.Errorf("invalid path '%s' for stats server", path)
 	}
