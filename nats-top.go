@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"sort"
 	"sync"
 	"syscall"
 	"time"
@@ -16,15 +17,15 @@ import (
 )
 
 func usage() {
-	log.Fatalf("Usage: nats-top [-s server] [-m monitor] [-n num_connections] [-d delay_secs]\n")
+	log.Fatalf("Usage: nats-top [-s server] [-m monitor_port] [-n num_connections] [-d delay_secs] [--sort by]\n")
 }
 
 var (
-	host  = flag.String("s", "127.0.0.1", "The nats server host")
-	port  = flag.Int("m", 8333, "The nats server monitoring port")
-	conns = flag.Int("n", 1024, "Num of connections")
-	delay = flag.Int("d", 1, "Delay in monitoring interval in seconds")
-	sort  = flag.String("sort", "pending_size", "Value for which to sort connections")
+	host   = flag.String("s", "127.0.0.1", "The nats server host")
+	port   = flag.Int("m", 8333, "The nats server monitoring port")
+	conns  = flag.Int("n", 1024, "Num of connections")
+	delay  = flag.Int("d", 1, "Delay in monitoring interval in seconds")
+	sortBy = flag.String("sort", "cid", "Value for which to sort by the connections")
 )
 
 func init() {
@@ -39,12 +40,31 @@ func main() {
 	opts["port"] = *port
 	opts["conns"] = *conns
 	opts["delay"] = *delay
-	opts["sort"] = *sort
 
 	if opts["host"] == nil || opts["port"] == nil {
 		log.Fatalf("Please specify the monitoring port for NATS.")
 		usage()
 	}
+
+	sortingOptions := map[string]bool{
+		"cid":        true,
+		"subs":       true,
+		"pending":    true,
+		"msgs_to":    true,
+		"msgs_from":  true,
+		"bytes_to":   true,
+		"bytes_from": true,
+	}
+
+	if !sortingOptions[*sortBy] {
+		log.Printf("nats-top: not a valid option to sort by: %s\n", *sortBy)
+		log.Println("Sort by options: ")
+		for k, _ := range sortingOptions {
+			log.Printf("         %s\n", k)
+		}
+		usage()
+	}
+	opts["sort"] = *sortBy
 
 	// Smoke test the server once before starting
 	_, err := Request("/varz", opts)
@@ -54,14 +74,17 @@ func main() {
 	}
 
 	sigch := make(chan os.Signal)
+
 	signal.Notify(sigch, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	clearScreen()
 	go StartSimpleUI(opts)
 
-	select {
-	case <-sigch:
-		clearScreen()
-		os.Exit(1)
+	for {
+		select {
+		case <-sigch:
+			clearScreen()
+			os.Exit(1)
+		}
 	}
 }
 
@@ -173,12 +196,30 @@ func StartSimpleUI(opts map[string]interface{}) {
 		text += fmt.Sprintf("\n\nConnections: %d\n", numConns)
 
 		connHeader := "  %-20s %-8s %-6s  %-10s  %-10s  %-10s  %-10s  %-10s  %-10s  %-10s\n"
+
 		connRows := fmt.Sprintf(connHeader, "HOST", "CID", "SUBS", "PENDING",
 			                            "MSGS_TO", "MSGS_FROM", "BYTES_TO", "BYTES_FROM",
 			                            "LANG", "VERSION")
 		text += connRows
-
 		connValues := "  %-20s %-8d %-6d  %-10d  %-10s  %-10s  %-10s  %-10s  %-10s  %-10s\n"
+
+		switch opts["sort"] {
+		case "cid":
+			sort.Sort(ByCid(connz.Conns))
+		case "subs":
+			sort.Sort(sort.Reverse(BySubs(connz.Conns)))
+		case "pending":
+			sort.Sort(sort.Reverse(ByPending(connz.Conns)))
+		case "msgs_to":
+			sort.Sort(sort.Reverse(ByMsgsTo(connz.Conns)))
+		case "msgs_from":
+			sort.Sort(sort.Reverse(ByMsgsFrom(connz.Conns)))
+		case "bytes_to":
+			sort.Sort(sort.Reverse(ByBytesTo(connz.Conns)))
+		case "bytes_from":
+			sort.Sort(sort.Reverse(ByBytesFrom(connz.Conns)))
+		}
+
 		for _, conn := range connz.Conns {
 			host := fmt.Sprintf("%s:%d", conn.IP, conn.Port)
 			connLine := fmt.Sprintf(connValues, host, conn.Cid, conn.NumSubs, conn.Pending,

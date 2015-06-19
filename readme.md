@@ -5,7 +5,7 @@ Top like program monitor for gnatsd written in Go.
 ```sh
 go get github.com/nats-io/nats-top
 
-Usage: nats-top [-s server] [-m monitor] [-n num_connections] [-d delay_secs]
+Usage: nats-top [-s server] [-m monitor] [-n num_connections] [-d delay_secs] [--sort by]
 ```
 
 Example Output:
