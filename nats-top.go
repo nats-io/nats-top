@@ -172,15 +172,18 @@ func StartSimpleUI(opts map[string]interface{}) {
 			outMsgs, outBytes, outMsgsRate, outBytesRate)
 		text += fmt.Sprintf("\n\nConnections: %d\n", numConns)
 
-		connHeader := "  %-20s %-8s %-6s  %-10s  %-10s  %-10s  %-10s  %-10s\n"
-		connRows := fmt.Sprintf(connHeader, "HOST", "CID", "SUBS", "PENDING", "MSGS_TO", "MSGS_FROM", "BYTES_TO", "BYTES_FROM")
+		connHeader := "  %-20s %-8s %-6s  %-10s  %-10s  %-10s  %-10s  %-10s  %-10s  %-10s\n"
+		connRows := fmt.Sprintf(connHeader, "HOST", "CID", "SUBS", "PENDING",
+			                            "MSGS_TO", "MSGS_FROM", "BYTES_TO", "BYTES_FROM",
+			                            "LANG", "VERSION")
 		text += connRows
 
-		connValues := "  %-20s %-8d %-6d  %-10d  %-10s  %-10s  %-10s  %-10s\n"
+		connValues := "  %-20s %-8d %-6d  %-10d  %-10s  %-10s  %-10s  %-10s  %-10s  %-10s\n"
 		for _, conn := range connz.Conns {
 			host := fmt.Sprintf("%s:%d", conn.IP, conn.Port)
 			connLine := fmt.Sprintf(connValues, host, conn.Cid, conn.NumSubs, conn.Pending,
-				Psize(conn.OutMsgs), Psize(conn.InMsgs), Psize(conn.OutBytes), Psize(conn.InBytes))
+				Psize(conn.OutMsgs), Psize(conn.InMsgs), Psize(conn.OutBytes), Psize(conn.InBytes),
+				conn.Lang, conn.Version)
 			text += connLine
 		}
 		fmt.Print(text)
