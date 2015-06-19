@@ -2,6 +2,7 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"log"
@@ -40,6 +41,7 @@ func main() {
 	opts["port"] = *port
 	opts["conns"] = *conns
 	opts["delay"] = *delay
+	opts["header"] = ""
 
 	if opts["host"] == nil || opts["port"] == nil {
 		log.Fatalf("Please specify the monitoring port for NATS.")
@@ -74,22 +76,71 @@ func main() {
 	}
 
 	sigch := make(chan os.Signal)
+	keych := make(chan string)
+	waitingSortOption := false
 
 	signal.Notify(sigch, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	clearScreen()
 	go StartSimpleUI(opts)
+	go listenKeyboard(keych)
 
 	for {
 		select {
 		case <-sigch:
-			clearScreen()
-			os.Exit(1)
+			cleanExit()
+
+		case keys := <-keych:
+			if !waitingSortOption && keys == "o\n" {
+				opts["header"] = fmt.Sprintf("\033[1;1H\033[6;1Hsort by [%s]: ", opts["sort"])
+				waitingSortOption = true
+				continue
+			}
+			if !waitingSortOption && keys == "q\n" {
+				cleanExit()
+			}
+
+			if waitingSortOption {
+				switch keys {
+				case "cid\n":
+					opts["sort"] = "cid"
+				case "subs\n":
+					opts["sort"] = "subs"
+				case "pending\n":
+					opts["sort"] = "pending"
+				case "msgs_to\n":
+					opts["sort"] = "msgs_to"
+				case "msgs_from\n":
+					opts["sort"] = "msgs_from"
+				case "bytes_to\n":
+					opts["sort"] = "bytes_to"
+				case "bytes_from\n":
+					opts["sort"] = "bytes_from"
+				}
+				waitingSortOption = false
+				opts["header"] = ""
+			}
 		}
 	}
 }
 
 func clearScreen() {
-	fmt.Print("\033[2J\033[1;1H")
+	fmt.Print("\033[2J\033[1;1H\033[?25l")
+}
+
+func cleanExit() {
+	clearScreen()
+
+	// Show cursor once again
+	fmt.Print("\033[?25h")
+	os.Exit(0)
+}
+
+func listenKeyboard(keych chan string) {
+	for {
+		reader := bufio.NewReader(os.Stdin)
+		keys, _ := reader.ReadString('\n')
+		keych <- keys
+	}
 }
 
 func StartSimpleUI(opts map[string]interface{}) {
@@ -198,8 +249,8 @@ func StartSimpleUI(opts map[string]interface{}) {
 		connHeader := "  %-20s %-8s %-6s  %-10s  %-10s  %-10s  %-10s  %-10s  %-10s  %-10s\n"
 
 		connRows := fmt.Sprintf(connHeader, "HOST", "CID", "SUBS", "PENDING",
-			                            "MSGS_TO", "MSGS_FROM", "BYTES_TO", "BYTES_FROM",
-			                            "LANG", "VERSION")
+			"MSGS_TO", "MSGS_FROM", "BYTES_TO", "BYTES_FROM",
+			"LANG", "VERSION")
 		text += connRows
 		connValues := "  %-20s %-8d %-6d  %-10d  %-10s  %-10s  %-10s  %-10s  %-10s  %-10s\n"
 
@@ -228,6 +279,9 @@ func StartSimpleUI(opts map[string]interface{}) {
 			text += connLine
 		}
 		fmt.Print(text)
+
+		// Move cursor to sort by options position
+		fmt.Print(opts["header"])
 
 		if first {
 			first = false
