@@ -220,15 +220,15 @@ func StartSimpleUI(opts map[string]interface{}) {
 		outBytesLastVal = outBytesVal
 
 		now := time.Now()
-		tdelta := pollTime.Sub(now)
+		tdelta := now.Sub(pollTime)
 		pollTime = now
 
 		// Calculate rates but the first time
 		if !first {
-			inMsgsRate = float64(inMsgsDelta) - tdelta.Seconds()
-			outMsgsRate = float64(outMsgsDelta) - tdelta.Seconds()
-			inBytesRate = float64(inBytesDelta) - tdelta.Seconds()
-			outBytesRate = float64(outBytesDelta) - tdelta.Seconds()
+			inMsgsRate = float64(inMsgsDelta) / tdelta.Seconds()
+			outMsgsRate = float64(outMsgsDelta) / tdelta.Seconds()
+			inBytesRate = float64(inBytesDelta) / tdelta.Seconds()
+			outBytesRate = float64(outBytesDelta) / tdelta.Seconds()
 		}
 
 		mem := Psize(memVal)
