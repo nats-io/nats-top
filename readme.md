@@ -61,9 +61,9 @@ nats-top [-s server] [-m monitor] [-n num_connections] [-d delay_in_secs] [-sort
 
 After running `nats-top`, it is possible to use the following commands:
 
-- **o <option>**
+- **o [option]**
 
-  Set primary sort key to **<option>**:
+  Set primary sort key to **[option]**:
 
   Keyname may be one of: **{cid, subs, msgs_to, msgs_from, bytes_to, bytes_from}**
 
