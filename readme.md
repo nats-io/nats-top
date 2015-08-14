@@ -45,22 +45,26 @@ nats-top [-s server] [-m monitor] [-n num_connections] [-d delay_in_secs] [-sort
 
   Monitoring http port from gnatsd.
 
-- `-m num_connections`
+- `-n num_connections`
 
-  Limit the connections requested to the server.
+  Limit the connections requested to the server (default: `1024`)
 
 - `-d delay_in_secs`
 
-  Screen refresh interval (minimum 1 second).
+  Screen refresh interval (default: 1 second).
+
+- `-sort by `
+
+  Field to use for sorting the connections.
 
 ## Commands
 
 After running `nats-top`, it is possible to use the following commands:
 
-- o <option>
+- **o <option>**
 
-  Set primary sort key to <key>:
+  Set primary sort key to **<option>**:
 
-  Keyname may be one of: {cid, subs, msgs_to, msgs_from, bytes_to, bytes_from}
+  Keyname may be one of: **{cid, subs, msgs_to, msgs_from, bytes_to, bytes_from}**
 
-  This can be set in the command line too, e.g. `nats-top -sort bytes_to`.
+  This can be set in the command line too, e.g. `nats-top -sort bytes_to`
