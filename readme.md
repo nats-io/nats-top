@@ -77,3 +77,7 @@ While in top view, it is possible to use the following commands:
   Note that if used in conjunction with sort, the server would respect
   both options enabling queries like _connection with largest number of subscriptions_:
   `nats-top -n 1 -sort subs`
+
+- **q**
+
+  Quit nats-top.
