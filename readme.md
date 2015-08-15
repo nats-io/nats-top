@@ -68,3 +68,12 @@ After running `nats-top`, it is possible to use the following commands:
   Keyname may be one of: **{cid, subs, msgs_to, msgs_from, bytes_to, bytes_from}**
 
   This can be set in the command line too, e.g. `nats-top -sort bytes_to`
+
+- **n <limit>**
+
+  Set sample size of connections to request from the server.
+
+  This can be set in the command line as well: `nats-top -n 1`
+  Note that if used in conjunction with sort, the server would respect
+  both options enabling queries like _connection with largest number of subscriptions_:
+  `nats-top -n 1 -sort subs`

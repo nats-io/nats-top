@@ -71,7 +71,7 @@ func main() {
 
 	go monitorStats(opts, statsCh)
 
-	StartRatesUI(opts, statsCh)
+	StartUI(opts, statsCh)
 }
 
 // clearScreen tries to ensure resetting original state of screen
@@ -237,7 +237,7 @@ func generateParagraph(
 	outBytes := Psize(outBytesVal)
 
 	info := "gnatsd version %s (uptime: %s)"
-	info += "\nServer:\n  Load: CPU: %.1f%%   Memory: %s   Slow Consumers: %d\n"
+	info += "\nServer:\n  Load: CPU:  %.1f%%    Memory: %s  Slow Consumers: %d\n"
 	info += "  In:   Msgs: %s  Bytes: %s  Msgs/Sec: %.1f  Bytes/Sec: %.1f\n"
 	info += "  Out:  Msgs: %s  Bytes: %s  Msgs/Sec: %.1f  Bytes/Sec: %.1f"
 
@@ -281,8 +281,8 @@ func generateParagraph(
 	return text
 }
 
-// StartRatesUI periodically refreshes the state of the screen
-func StartRatesUI(
+// StartUI periodically refreshes the screen using recent data
+func StartUI(
 	opts map[string]interface{},
 	statsCh chan *Stats,
 ) {
@@ -292,6 +292,7 @@ func StartRatesUI(
 		Connz: &gnatsd.Connz{},
 		Rates: &Rates{},
 	}
+
 	text := generateParagraph(opts, cleanStats)
 	par := ui.NewPar(text)
 	par.Height = ui.TermHeight()
@@ -312,17 +313,18 @@ func StartRatesUI(
 		done <- struct{}{}
 	}
 
+	// Flags for capturing options
 	waitingSortOption := false
-	sortOptionBuf := ""
-	refreshSortHeader := func() {
+	waitingLimitOption := false
+
+	optionBuf := ""
+	refreshOptionHeader := func() {
 		// Need to mask what was typed before
 		clrline := "\033[1;1H\033[6;1H                  "
-		for i := 0; i < len(opts["sort"].(gnatsd.SortOpt)); i++ {
-			clrline += " "
-		}
+
 		clrline += "  "
-		for i := 0; i < len(sortOptionBuf); i++ {
-			clrline += " "
+		for i := 0; i < len(optionBuf); i++ {
+			clrline += "  "
 		}
 		fmt.Printf(clrline)
 	}
@@ -339,7 +341,7 @@ func StartRatesUI(
 
 				if e.Type == ui.EventKey && e.Key == ui.KeyEnter {
 
-					sortOpt := gnatsd.SortOpt(sortOptionBuf)
+					sortOpt := gnatsd.SortOpt(optionBuf)
 					switch sortOpt {
 					case SortByCid, SortBySubs, SortByOutMsgs, SortByInMsgs, SortByOutBytes, SortByInBytes:
 						opts["sort"] = sortOpt
@@ -347,41 +349,72 @@ func StartRatesUI(
 						go func() {
 							// Has to be at least of the same length as sort by header
 							emptyPadding := ""
-							if len(sortOptionBuf) < 5 {
-								emptyPadding = "     "
+							if len(optionBuf) < 5 {
+								emptyPadding = "       "
 							}
-							fmt.Printf("\033[1;1H\033[6;1Hinvalid order: %s%s", emptyPadding, sortOptionBuf)
-							waitingSortOption = false
+							fmt.Printf("\033[1;1H\033[6;1Hinvalid order: %s%s", emptyPadding, optionBuf)
 							time.Sleep(1 * time.Second)
-							refreshSortHeader()
-							sortOptionBuf = ""
+							waitingSortOption = false
+							refreshOptionHeader()
+							optionBuf = ""
 						}()
 						continue
 					}
 
-					refreshSortHeader()
+					refreshOptionHeader()
 					waitingSortOption = false
-					sortOptionBuf = ""
+					optionBuf = ""
 					continue
 				}
 
 				// Handle backspace
-				if e.Type == ui.EventKey && len(sortOptionBuf) > 0 && (e.Key == ui.KeyBackspace || e.Key == ui.KeyBackspace2) {
-					sortOptionBuf = sortOptionBuf[:len(sortOptionBuf)-1]
-					refreshSortHeader()
+				if e.Type == ui.EventKey && len(optionBuf) > 0 && (e.Key == ui.KeyBackspace || e.Key == ui.KeyBackspace2) {
+					optionBuf = optionBuf[:len(optionBuf)-1]
+					refreshOptionHeader()
 				} else {
-					sortOptionBuf += string(e.Ch)
+					optionBuf += string(e.Ch)
 				}
-				fmt.Printf("\033[1;1H\033[6;1Hsort by [%s]: %s", opts["sort"], sortOptionBuf)
+				fmt.Printf("\033[1;1H\033[6;1Hsort by [%s]: %s", opts["sort"], optionBuf)
+			}
+
+			if waitingLimitOption {
+
+				if e.Type == ui.EventKey && e.Key == ui.KeyEnter {
+
+					var n int
+					_, err := fmt.Sscanf(optionBuf, "%d", &n)
+					if err == nil {
+						opts["conns"] = n
+					}
+
+					waitingLimitOption = false
+					optionBuf = ""
+					refreshOptionHeader()
+					continue
+				}
+
+				// Handle backspace
+				if e.Type == ui.EventKey && len(optionBuf) > 0 && (e.Key == ui.KeyBackspace || e.Key == ui.KeyBackspace2) {
+					optionBuf = optionBuf[:len(optionBuf)-1]
+					refreshOptionHeader()
+				} else {
+					optionBuf += string(e.Ch)
+				}
+				fmt.Printf("\033[1;1H\033[6;1Hlimit   [%d]: %s", opts["conns"], optionBuf)
 			}
 
 			if e.Type == ui.EventKey && e.Ch == 'q' {
 				cleanExit()
 			}
 
-			if e.Type == ui.EventKey && e.Ch == 'o' {
+			if e.Type == ui.EventKey && e.Ch == 'o' && !waitingLimitOption {
 				fmt.Printf("\033[1;1H\033[6;1Hsort by [%s]:", opts["sort"])
 				waitingSortOption = true
+			}
+
+			if e.Type == ui.EventKey && e.Ch == 'n' && !waitingSortOption {
+				fmt.Printf("\033[1;1H\033[6;1Hlimit   [%d]:", opts["conns"])
+				waitingLimitOption = true
 			}
 
 			if e.Type == ui.EventKey && e.Key == ui.KeySpace {
