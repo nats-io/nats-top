@@ -282,6 +282,14 @@ func generateParagraph(
 	return text
 }
 
+type ViewMode int
+
+const (
+	TopViewMode ViewMode = iota
+	DashboardViewMode
+	HelpViewMode
+)
+
 // StartUI periodically refreshes the screen using recent data
 func StartUI(
 	opts map[string]interface{},
@@ -300,6 +308,12 @@ func StartUI(
 	par.Height = ui.TermHeight()
 	par.Width = ui.TermWidth()
 	par.HasBorder = false
+
+	helpText := generateHelp()
+	helpPar := ui.NewPar(helpText)
+	helpPar.Height = ui.TermHeight()
+	helpPar.Width = ui.TermWidth()
+	helpPar.HasBorder = false
 
 	// cpu and conns share the same space in the grid so handled differently
 	cpuChart := ui.NewGauge()
@@ -406,14 +420,22 @@ func StartUI(
 	//
 	paraRow := ui.NewRow(ui.NewCol(ui.TermWidth(), 0, par))
 
+	// Help view
+	//
+	helpParaRow := ui.NewRow(ui.NewCol(ui.TermWidth(), 0, helpPar))
+
 	// Create grids that we'll be using to toggle what to render
 	dashboardGrid := ui.NewGrid(cpuMemConnsCharts, inCharts, outCharts)
 	topViewGrid := ui.NewGrid(paraRow)
+	helpViewGrid := ui.NewGrid(helpParaRow)
 
 	// Start with the topviewGrid by default
 	ui.Body.Rows = topViewGrid.Rows
 	ui.Body.Align()
-	viewMode := "top"
+
+	// Used to toggle back to previous mode
+	viewMode := TopViewMode
+	prevMode := TopViewMode
 
 	// Used for pinging the IU to refresh the screen with new values
 	redraw := make(chan struct{})
@@ -580,37 +602,68 @@ func StartUI(
 				cleanExit()
 			}
 
-			if e.Type == ui.EventKey && e.Ch == 'o' && !waitingLimitOption {
+			if e.Type == ui.EventKey && viewMode == HelpViewMode {
+				switch prevMode {
+				case TopViewMode:
+					ui.Body.Rows = topViewGrid.Rows
+					viewMode = TopViewMode
+					prevMode = HelpViewMode
+				case DashboardViewMode:
+					ui.Body.Rows = dashboardGrid.Rows
+					viewMode = DashboardViewMode
+					prevMode = HelpViewMode
+				}
+				continue
+			}
+
+			if e.Type == ui.EventKey && e.Ch == 'o' && !waitingLimitOption && viewMode == TopViewMode {
 				fmt.Printf("\033[1;1H\033[6;1Hsort by [%s]:", opts["sort"])
 				waitingSortOption = true
 			}
 
-			if e.Type == ui.EventKey && e.Ch == 'n' && !waitingSortOption {
+			if e.Type == ui.EventKey && e.Ch == 'n' && !waitingSortOption && viewMode == TopViewMode {
 				fmt.Printf("\033[1;1H\033[6;1Hlimit   [%d]:", opts["conns"])
 				waitingLimitOption = true
+			}
+
+			if e.Type == ui.EventKey && (e.Ch == '?' || e.Ch == 'h') && !(waitingSortOption || waitingLimitOption) {
+				if viewMode == TopViewMode {
+					refreshOptionHeader()
+					optionBuf = ""
+				}
+
+				ui.Body.Rows = helpViewGrid.Rows
+				prevMode = viewMode
+				viewMode = HelpViewMode
+				waitingLimitOption = false
+				waitingSortOption = false
 			}
 
 			if e.Type == ui.EventKey && e.Key == ui.KeySpace {
 
 				// Toggle between one of the views
 				switch viewMode {
-				case "top":
+				case TopViewMode:
 					refreshOptionHeader()
 					ui.Body.Rows = dashboardGrid.Rows
-					viewMode = "dashboard"
-					waitingSortOption = false
-					waitingLimitOption = false
-				case "dashboard":
+					viewMode = DashboardViewMode
+					prevMode = TopViewMode
+				case DashboardViewMode:
 					ui.Body.Rows = topViewGrid.Rows
-					viewMode = "top"
+					viewMode = TopViewMode
+					prevMode = DashboardViewMode
 				}
+
+				waitingSortOption = false
+				waitingLimitOption = false
 				ui.Body.Align()
 			}
 
 			if e.Type == ui.EventResize {
 
+				// Redraw the graphs on resize while in dashboard view
 				switch viewMode {
-				case "dashboard":
+				case DashboardViewMode:
 					ui.Body.Width = ui.TermWidth()
 
 					// Refresh size of boxes accordingly
@@ -643,4 +696,30 @@ func StartUI(
 			ui.Render(ui.Body)
 		}
 	}
+}
+
+func generateHelp() string {
+	text := `
+Command          Description
+
+o<option>        Set primary sort key to <option>.
+
+                 Option can be one of: {cid|subs|msgs_to|msgs_from|
+                 bytes_to, bytes_from}
+
+                 This can be set in the command line too with -sort flag.
+
+n<limit>         Set sample size of connections to request from the server.
+
+                 This can be set in the command line as well via -n flag.
+                 Note that if used in conjunction with sort, the server 
+                 would respect both options allowing queries like 'connection
+                 with largest number of subscriptions': -n 1 -sort subs
+
+q                Quit nats-top
+
+Press any key to continue...
+
+`
+	return text
 }
