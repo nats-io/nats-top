@@ -69,7 +69,7 @@ After running `nats-top`, it is possible to use the following commands:
 
   This can be set in the command line too, e.g. `nats-top -sort bytes_to`
 
-- **n <limit>**
+- **n [limit]**
 
   Set sample size of connections to request from the server.
 
