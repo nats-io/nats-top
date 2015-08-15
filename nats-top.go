@@ -22,7 +22,7 @@ var (
 	conns       = flag.Int("n", 1024, "Maximum number of connections to poll.")
 	delay       = flag.Int("d", 1, "Refresh interval in seconds.")
 	sortBy      = flag.String("sort", "cid", "Value for which to sort by the connections.")
-	showVersion = flag.Bool("v", false, "Show nats-top version")
+	showVersion = flag.Bool("v", false, "Show nats-top version.")
 )
 
 func usage() {
@@ -139,7 +139,7 @@ func monitorStats(
 		{
 			result, err := Request("/varz", opts)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "could not get /varz: %v", err)
+				// fmt.Fprintf(os.Stderr, "could not get /varz: %v", err)
 				statsCh <- stats
 				continue
 			}
@@ -152,7 +152,7 @@ func monitorStats(
 		{
 			result, err := Request("/connz", opts)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "could not get /connz: %v", err)
+				// fmt.Fprintf(os.Stderr, "could not get /connz: %v", err)
 				statsCh <- stats
 				continue
 			}
