@@ -59,7 +59,7 @@ nats-top [-s server] [-m monitor] [-n num_connections] [-d delay_in_secs] [-sort
 
 ## Commands
 
-After running `nats-top`, it is possible to use the following commands:
+While in top view, it is possible to use the following commands:
 
 - **o [option]**
 
