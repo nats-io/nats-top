@@ -32,7 +32,7 @@ Connections: 4
 Can be installed via `go get`:
 
 ```sh
-go get -d github.com/nats-io/nats-top
+go get github.com/nats-io/nats-top
 ```
 
 ## Usage
