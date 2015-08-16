@@ -119,15 +119,15 @@ func monitorStats(
 	first := true
 	pollTime = time.Now()
 
-	for {
-		// Note that delay defines the sampling rate as well
-		if val, ok := opts["delay"].(int); ok {
-			time.Sleep(time.Duration(val) * time.Second)
-		} else {
-			log.Fatalf("error: could not use %s as a refreshing interval", opts["delay"])
-			break
-		}
+	var delay int
+	if val, ok := opts["delay"].(int); ok {
+		delay = val
+	} else {
+		log.Fatalf("error: could not use %s as a refreshing interval", opts["delay"])
+		return
+	}
 
+	for {
 		// Wrap collected info in a Stats struct
 		stats := &Stats{
 			Varz:  &gnatsd.Varz{},
@@ -201,6 +201,8 @@ func monitorStats(
 
 		// Send update
 		statsCh <- stats
+
+		time.Sleep(time.Duration(delay) * time.Second)
 	}
 }
 
