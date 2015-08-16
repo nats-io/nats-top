@@ -697,6 +697,9 @@ func generateHelp() string {
 	text := `
 Command          Description
 
+space            Switch to dashboard view with graphs.
+                 Press SPACE again to return to top view.
+
 o<option>        Set primary sort key to <option>.
 
                  Option can be one of: {cid|subs|msgs_to|msgs_from|
