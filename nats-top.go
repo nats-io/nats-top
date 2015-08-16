@@ -138,27 +138,20 @@ func monitorStats(
 		// Get /varz
 		{
 			result, err := Request("/varz", opts)
-			if err != nil {
-				// fmt.Fprintf(os.Stderr, "could not get /varz: %v", err)
-				statsCh <- stats
-				continue
-			}
-			if varz, ok := result.(*gnatsd.Varz); ok {
-				stats.Varz = varz
+			if err == nil {
+				if varz, ok := result.(*gnatsd.Varz); ok {
+					stats.Varz = varz
+				}
 			}
 		}
 
 		// Get /connz
 		{
 			result, err := Request("/connz", opts)
-			if err != nil {
-				// fmt.Fprintf(os.Stderr, "could not get /connz: %v", err)
-				statsCh <- stats
-				continue
-			}
-
-			if connz, ok := result.(*gnatsd.Connz); ok {
-				stats.Connz = connz
+			if err == nil {
+				if connz, ok := result.(*gnatsd.Connz); ok {
+					stats.Connz = connz
+				}
 			}
 		}
 
