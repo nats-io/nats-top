@@ -25,7 +25,7 @@ Connections: 4
 
 ## Demo
 
-[![asciicast](https://asciinema.org/a/6xgidw31a47b3uwrg0uim6083.png)](https://asciinema.org/a/6xgidw31a47b3uwrg0uim6083)
+[![asciicast](https://asciinema.org/a/aayxym1taisg8s9wba5lzdz55.png)](https://asciinema.org/a/aayxym1taisg8s9wba5lzdz55)
 
 ## Install
 
@@ -77,6 +77,10 @@ While in top view, it is possible to use the following commands:
   Note that if used in conjunction with sort, the server would respect
   both options enabling queries like _connection with largest number of subscriptions_:
   `nats-top -n 1 -sort subs`
+
+- **?**
+
+  Show help message with options.
 
 - **q**
 
