@@ -59,6 +59,7 @@ func main() {
 		opts["sort"] = sortOpt
 	default:
 		log.Printf("nats-top: not a valid option to sort by: %s\n", sortOpt)
+		usage()
 	}
 
 	err := ui.Init()
