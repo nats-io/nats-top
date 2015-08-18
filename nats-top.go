@@ -379,11 +379,8 @@ func StartUI(
 					default:
 						go func() {
 							// Has to be at least of the same length as sort by header
-							emptyPadding := ""
-							if len(optionBuf) < 5 {
-								emptyPadding = "   "
-							}
-							fmt.Printf("\033[1;1H\033[6;1Hinvalid order: %s%s", emptyPadding, optionBuf)
+							emptyPadding := "       "
+							fmt.Printf("\033[1;1H\033[6;1Hinvalid order: %s%s", optionBuf, emptyPadding)
 							waitingSortOption = false
 							time.Sleep(1 * time.Second)
 							refreshOptionHeader()
