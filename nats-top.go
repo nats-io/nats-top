@@ -2,32 +2,32 @@
 package main
 
 import (
-	"bufio"
 	"flag"
 	"fmt"
 	"log"
 	"os"
-	"os/signal"
 	"sort"
-	"sync"
-	"syscall"
 	"time"
 
-	"github.com/nats-io/gnatsd/server"
+	ui "github.com/gizak/termui"
+	gnatsd "github.com/nats-io/gnatsd/server"
 	. "github.com/nats-io/nats-top/util"
 )
 
-func usage() {
-	log.Fatalf("Usage: nats-top [-s server] [-m monitor_port] [-n num_connections] [-d delay_secs] [--sort by]\n")
-}
+const version = "0.1.0"
 
 var (
-	host   = flag.String("s", "127.0.0.1", "The nats server host")
-	port   = flag.Int("m", 8333, "The nats server monitoring port")
-	conns  = flag.Int("n", 1024, "Num of connections")
-	delay  = flag.Int("d", 1, "Delay in monitoring interval in seconds")
-	sortBy = flag.String("sort", "cid", "Value for which to sort by the connections")
+	host        = flag.String("s", "127.0.0.1", "The nats server host.")
+	port        = flag.Int("m", 8222, "The nats server monitoring port.")
+	conns       = flag.Int("n", 1024, "Maximum number of connections to poll.")
+	delay       = flag.Int("d", 1, "Refresh interval in seconds.")
+	sortBy      = flag.String("sort", "cid", "Value for which to sort by the connections.")
+	showVersion = flag.Bool("v", false, "Show nats-top version.")
 )
+
+func usage() {
+	log.Fatalf("Usage: nats-top [-s server] [-m monitor_port] [-n num_connections] [-d delay_secs] [-sort by]\n")
+}
 
 func init() {
 	log.SetFlags(0)
@@ -36,114 +36,70 @@ func init() {
 }
 
 func main() {
-	opts := make(map[string]interface{})
+
+	if *showVersion {
+		log.Printf("nats-top v%s", version)
+		os.Exit(0)
+	}
+
+	opts := map[string]interface{}{}
 	opts["host"] = *host
 	opts["port"] = *port
 	opts["conns"] = *conns
 	opts["delay"] = *delay
-	opts["header"] = ""
 
 	if opts["host"] == nil || opts["port"] == nil {
-		log.Fatalf("Please specify the monitoring port for NATS.")
+		log.Fatalf("Please specify the monitoring port for NATS.\n")
 		usage()
 	}
 
-	sortingOptions := map[string]bool{
-		"cid":        true,
-		"subs":       true,
-		"pending":    true,
-		"msgs_to":    true,
-		"msgs_from":  true,
-		"bytes_to":   true,
-		"bytes_from": true,
-	}
-
-	if !sortingOptions[*sortBy] {
-		log.Printf("nats-top: not a valid option to sort by: %s\n", *sortBy)
-		log.Println("Sort by options: ")
-		for k, _ := range sortingOptions {
-			log.Printf("         %s\n", k)
-		}
+	sortOpt := gnatsd.SortOpt(*sortBy)
+	switch sortOpt {
+	case SortByCid, SortBySubs, SortByOutMsgs, SortByInMsgs, SortByOutBytes, SortByInBytes:
+		opts["sort"] = sortOpt
+	default:
+		log.Printf("nats-top: not a valid option to sort by: %s\n", sortOpt)
 		usage()
 	}
-	opts["sort"] = *sortBy
 
-	// Smoke test the server once before starting
-	_, err := Request("/varz", opts)
+	err := ui.Init()
 	if err != nil {
-		log.Fatalf("ERROR: %v", err)
-		os.Exit(1)
+		panic(err)
 	}
+	defer ui.Close()
 
-	sigch := make(chan os.Signal)
-	keych := make(chan string)
-	waitingSortOption := false
+	statsCh := make(chan *Stats)
 
-	signal.Notify(sigch, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
-	clearScreen()
-	go StartSimpleUI(opts)
-	go listenKeyboard(keych)
+	go monitorStats(opts, statsCh)
 
-	for {
-		select {
-		case <-sigch:
-			cleanExit()
-
-		case keys := <-keych:
-			if !waitingSortOption && keys == "o\n" {
-				opts["header"] = fmt.Sprintf("\033[1;1H\033[6;1Hsort by [%s]: ", opts["sort"])
-				waitingSortOption = true
-				continue
-			}
-			if !waitingSortOption && keys == "q\n" {
-				cleanExit()
-			}
-
-			if waitingSortOption {
-				switch keys {
-				case "cid\n":
-					opts["sort"] = "cid"
-				case "subs\n":
-					opts["sort"] = "subs"
-				case "pending\n":
-					opts["sort"] = "pending"
-				case "msgs_to\n":
-					opts["sort"] = "msgs_to"
-				case "msgs_from\n":
-					opts["sort"] = "msgs_from"
-				case "bytes_to\n":
-					opts["sort"] = "bytes_to"
-				case "bytes_from\n":
-					opts["sort"] = "bytes_from"
-				}
-				waitingSortOption = false
-				opts["header"] = ""
-			}
-		}
-	}
+	StartUI(opts, statsCh)
 }
 
+// clearScreen tries to ensure resetting original state of screen
 func clearScreen() {
 	fmt.Print("\033[2J\033[1;1H\033[?25l")
 }
 
 func cleanExit() {
 	clearScreen()
+	ui.Close()
 
 	// Show cursor once again
 	fmt.Print("\033[?25h")
 	os.Exit(0)
 }
 
-func listenKeyboard(keych chan string) {
-	for {
-		reader := bufio.NewReader(os.Stdin)
-		keys, _ := reader.ReadString('\n')
-		keych <- keys
-	}
+func exitWithError() {
+	ui.Close()
+	os.Exit(1)
 }
 
-func StartSimpleUI(opts map[string]interface{}) {
+// monitorStats can be ran as a goroutine and takes options
+// which can modify how to do the polling
+func monitorStats(
+	opts map[string]interface{},
+	statsCh chan *Stats,
+) {
 	var pollTime time.Time
 
 	var inMsgsDelta int64
@@ -163,51 +119,48 @@ func StartSimpleUI(opts map[string]interface{}) {
 
 	first := true
 	pollTime = time.Now()
+
+	var delay int
+	if val, ok := opts["delay"].(int); ok {
+		delay = val
+	} else {
+		log.Fatalf("error: could not use %s as a refreshing interval", opts["delay"])
+		return
+	}
+
 	for {
-		wg := &sync.WaitGroup{}
-		wg.Add(2)
+		// Wrap collected info in a Stats struct
+		stats := &Stats{
+			Varz:  &gnatsd.Varz{},
+			Connz: &gnatsd.Connz{},
+			Rates: &Rates{},
+		}
 
-		// Periodically poll for the varz, connz and routez
-		var varz *server.Varz
-		go func() {
-			var err error
-			defer wg.Done()
-
+		// Get /varz
+		{
 			result, err := Request("/varz", opts)
-			if err != nil {
-				log.Fatalf("Could not get /varz: %v", err)
+			if err == nil {
+				if varz, ok := result.(*gnatsd.Varz); ok {
+					stats.Varz = varz
+				}
 			}
+		}
 
-			if varzVal, ok := result.(*server.Varz); ok {
-				varz = varzVal
-			}
-		}()
-
-		var connz *server.Connz
-		go func() {
-			var err error
-			defer wg.Done()
-
+		// Get /connz
+		{
 			result, err := Request("/connz", opts)
-			if err != nil {
-				log.Fatalf("Could not get /connz: %v", err)
+			if err == nil {
+				if connz, ok := result.(*gnatsd.Connz); ok {
+					stats.Connz = connz
+				}
 			}
-
-			if connzVal, ok := result.(*server.Connz); ok {
-				connz = connzVal
-			}
-		}()
-		wg.Wait()
-
-		cpu := varz.CPU
-		numConns := connz.NumConns
-		memVal := varz.Mem
+		}
 
 		// Periodic snapshot to get per sec metrics
-		inMsgsVal := varz.InMsgs
-		outMsgsVal := varz.OutMsgs
-		inBytesVal := varz.InBytes
-		outBytesVal := varz.OutBytes
+		inMsgsVal := stats.Varz.InMsgs
+		outMsgsVal := stats.Varz.OutMsgs
+		inBytesVal := stats.Varz.InBytes
+		outBytesVal := stats.Varz.OutBytes
 
 		inMsgsDelta = inMsgsVal - inMsgsLastVal
 		outMsgsDelta = outMsgsVal - outMsgsLastVal
@@ -224,75 +177,326 @@ func StartSimpleUI(opts map[string]interface{}) {
 		pollTime = now
 
 		// Calculate rates but the first time
-		if !first {
+		if first {
+			first = false
+		} else {
 			inMsgsRate = float64(inMsgsDelta) / tdelta.Seconds()
 			outMsgsRate = float64(outMsgsDelta) / tdelta.Seconds()
 			inBytesRate = float64(inBytesDelta) / tdelta.Seconds()
 			outBytesRate = float64(outBytesDelta) / tdelta.Seconds()
 		}
 
-		mem := Psize(memVal)
-		inMsgs := Psize(inMsgsVal)
-		outMsgs := Psize(outMsgsVal)
-		inBytes := Psize(inBytesVal)
-		outBytes := Psize(outBytesVal)
-
-		info := "\nServer:\n  Load: CPU: %.1f%%  Memory: %s\n"
-		info += "  In:   Msgs: %s  Bytes: %s  Msgs/Sec: %.1f  Bytes/Sec: %.1f\n"
-		info += "  Out:  Msgs: %s  Bytes: %s  Msgs/Sec: %.1f  Bytes/Sec: %.1f"
-
-		text := fmt.Sprintf(info, cpu, mem,
-			inMsgs, inBytes, inMsgsRate, inBytesRate,
-			outMsgs, outBytes, outMsgsRate, outBytesRate)
-		text += fmt.Sprintf("\n\nConnections: %d\n", numConns)
-
-		connHeader := "  %-20s %-8s %-6s  %-10s  %-10s  %-10s  %-10s  %-10s  %-10s  %-10s\n"
-
-		connRows := fmt.Sprintf(connHeader, "HOST", "CID", "SUBS", "PENDING",
-			"MSGS_TO", "MSGS_FROM", "BYTES_TO", "BYTES_FROM",
-			"LANG", "VERSION")
-		text += connRows
-		connValues := "  %-20s %-8d %-6d  %-10d  %-10s  %-10s  %-10s  %-10s  %-10s  %-10s\n"
-
-		switch opts["sort"] {
-		case "cid":
-			sort.Sort(ByCid(connz.Conns))
-		case "subs":
-			sort.Sort(sort.Reverse(BySubs(connz.Conns)))
-		case "pending":
-			sort.Sort(sort.Reverse(ByPending(connz.Conns)))
-		case "msgs_to":
-			sort.Sort(sort.Reverse(ByMsgsTo(connz.Conns)))
-		case "msgs_from":
-			sort.Sort(sort.Reverse(ByMsgsFrom(connz.Conns)))
-		case "bytes_to":
-			sort.Sort(sort.Reverse(ByBytesTo(connz.Conns)))
-		case "bytes_from":
-			sort.Sort(sort.Reverse(ByBytesFrom(connz.Conns)))
+		stats.Rates = &Rates{
+			InMsgsRate:   inMsgsRate,
+			OutMsgsRate:  outMsgsRate,
+			InBytesRate:  inBytesRate,
+			OutBytesRate: outBytesRate,
 		}
 
-		for _, conn := range connz.Conns {
-			host := fmt.Sprintf("%s:%d", conn.IP, conn.Port)
-			connLine := fmt.Sprintf(connValues, host, conn.Cid, conn.NumSubs, conn.Pending,
-				Psize(conn.OutMsgs), Psize(conn.InMsgs), Psize(conn.OutBytes), Psize(conn.InBytes),
-				conn.Lang, conn.Version)
-			text += connLine
-		}
-		fmt.Print(text)
+		// Send update
+		statsCh <- stats
 
-		// Move cursor to sort by options position
-		fmt.Print(opts["header"])
+		time.Sleep(time.Duration(delay) * time.Second)
+	}
+}
 
-		if first {
-			first = false
-		}
+// generateParagraph takes an options map and latest Stats
+// then returns a formatted paragraph ready to be rendered
+func generateParagraph(
+	opts map[string]interface{},
+	stats *Stats,
+) string {
 
-		if val, ok := opts["delay"].(int); ok {
-			time.Sleep(time.Duration(val) * time.Second)
-			clearScreen()
-		} else {
-			log.Fatalf("error: could not use %s as a refreshing interval", opts["delay"])
-			break
+	// Snapshot current stats
+	cpu := stats.Varz.CPU
+	memVal := stats.Varz.Mem
+	uptime := stats.Varz.Uptime
+	numConns := stats.Connz.NumConns
+	inMsgsVal := stats.Varz.InMsgs
+	outMsgsVal := stats.Varz.OutMsgs
+	inBytesVal := stats.Varz.InBytes
+	outBytesVal := stats.Varz.OutBytes
+	slowConsumers := stats.Varz.SlowConsumers
+
+	var serverVersion string
+	if stats.Varz.Info != nil {
+		serverVersion = stats.Varz.Info.Version
+	}
+
+	mem := Psize(memVal)
+	inMsgs := Psize(inMsgsVal)
+	outMsgs := Psize(outMsgsVal)
+	inBytes := Psize(inBytesVal)
+	outBytes := Psize(outBytesVal)
+	inMsgsRate := stats.Rates.InMsgsRate
+	outMsgsRate := stats.Rates.OutMsgsRate
+	inBytesRate := Psize(int64(stats.Rates.InBytesRate))
+	outBytesRate := Psize(int64(stats.Rates.OutBytesRate))
+
+	info := "gnatsd version %s (uptime: %s)"
+	info += "\nServer:\n  Load: CPU:  %.1f%%  Memory: %s  Slow Consumers: %d\n"
+	info += "  In:   Msgs: %s  Bytes: %s  Msgs/Sec: %.1f  Bytes/Sec: %s\n"
+	info += "  Out:  Msgs: %s  Bytes: %s  Msgs/Sec: %.1f  Bytes/Sec: %s"
+
+	text := fmt.Sprintf(info, serverVersion, uptime,
+		cpu, mem, slowConsumers,
+		inMsgs, inBytes, inMsgsRate, inBytesRate,
+		outMsgs, outBytes, outMsgsRate, outBytesRate)
+	text += fmt.Sprintf("\n\nConnections: %d\n", numConns)
+
+	connHeader := "  %-20s %-8s %-6s  %-10s  %-10s  %-10s  %-10s  %-10s  %-7s  %-7s\n"
+
+	connRows := fmt.Sprintf(connHeader, "HOST", "CID", "SUBS", "PENDING",
+		"MSGS_TO", "MSGS_FROM", "BYTES_TO", "BYTES_FROM",
+		"LANG", "VERSION")
+	text += connRows
+	connValues := "  %-20s %-8d %-6d  %-10s  %-10s  %-10s  %-10s  %-10s  %-7s  %-7s\n"
+
+	switch opts["sort"] {
+	case SortByCid:
+		sort.Sort(ByCid(stats.Connz.Conns))
+	case SortBySubs:
+		sort.Sort(sort.Reverse(BySubs(stats.Connz.Conns)))
+	case SortByOutMsgs:
+		sort.Sort(sort.Reverse(ByMsgsTo(stats.Connz.Conns)))
+	case SortByInMsgs:
+		sort.Sort(sort.Reverse(ByMsgsFrom(stats.Connz.Conns)))
+	case SortByOutBytes:
+		sort.Sort(sort.Reverse(ByBytesTo(stats.Connz.Conns)))
+	case SortByInBytes:
+		sort.Sort(sort.Reverse(ByBytesFrom(stats.Connz.Conns)))
+	}
+
+	for _, conn := range stats.Connz.Conns {
+		host := fmt.Sprintf("%s:%d", conn.IP, conn.Port)
+		connLine := fmt.Sprintf(connValues, host, conn.Cid, conn.NumSubs, Psize(int64(conn.Pending)),
+			Psize(conn.OutMsgs), Psize(conn.InMsgs), Psize(conn.OutBytes), Psize(conn.InBytes),
+			conn.Lang, conn.Version)
+		text += connLine
+	}
+
+	return text
+}
+
+type ViewMode int
+
+const (
+	TopViewMode ViewMode = iota
+	HelpViewMode
+)
+
+// StartUI periodically refreshes the screen using recent data
+func StartUI(
+	opts map[string]interface{},
+	statsCh chan *Stats,
+) {
+
+	cleanStats := &Stats{
+		Varz:  &gnatsd.Varz{},
+		Connz: &gnatsd.Connz{},
+		Rates: &Rates{},
+	}
+
+	// Show empty values on first display
+	text := generateParagraph(opts, cleanStats)
+	par := ui.NewPar(text)
+	par.Height = ui.TermHeight()
+	par.Width = ui.TermWidth()
+	par.HasBorder = false
+
+	helpText := generateHelp()
+	helpPar := ui.NewPar(helpText)
+	helpPar.Height = ui.TermHeight()
+	helpPar.Width = ui.TermWidth()
+	helpPar.HasBorder = false
+
+	// Top like view
+	paraRow := ui.NewRow(ui.NewCol(ui.TermWidth(), 0, par))
+
+	// Help view
+	helpParaRow := ui.NewRow(ui.NewCol(ui.TermWidth(), 0, helpPar))
+
+	// Create grids that we'll be using to toggle what to render
+	topViewGrid := ui.NewGrid(paraRow)
+	helpViewGrid := ui.NewGrid(helpParaRow)
+
+	// Start with the topviewGrid by default
+	ui.Body.Rows = topViewGrid.Rows
+	ui.Body.Align()
+
+	// Used to toggle back to previous mode
+	viewMode := TopViewMode
+
+	// Used for pinging the IU to refresh the screen with new values
+	redraw := make(chan struct{})
+
+	update := func() {
+		for {
+			stats := <-statsCh
+
+			// Update top view text
+			text = generateParagraph(opts, stats)
+			par.Text = text
+
+			redraw <- struct{}{}
 		}
 	}
+
+	// Flags for capturing options
+	waitingSortOption := false
+	waitingLimitOption := false
+
+	optionBuf := ""
+	refreshOptionHeader := func() {
+		// Need to mask what was typed before
+		clrline := "\033[1;1H\033[6;1H                  "
+
+		clrline += "  "
+		for i := 0; i < len(optionBuf); i++ {
+			clrline += "  "
+		}
+		fmt.Printf(clrline)
+	}
+
+	evt := ui.EventCh()
+
+	ui.Render(ui.Body)
+
+	go update()
+
+	for {
+		select {
+		case e := <-evt:
+
+			if waitingSortOption {
+
+				if e.Type == ui.EventKey && e.Key == ui.KeyEnter {
+
+					sortOpt := gnatsd.SortOpt(optionBuf)
+					switch sortOpt {
+					case SortByCid, SortBySubs, SortByOutMsgs, SortByInMsgs, SortByOutBytes, SortByInBytes:
+						opts["sort"] = sortOpt
+					default:
+						go func() {
+							// Has to be at least of the same length as sort by header
+							emptyPadding := "       "
+							fmt.Printf("\033[1;1H\033[6;1Hinvalid order: %s%s", optionBuf, emptyPadding)
+							waitingSortOption = false
+							time.Sleep(1 * time.Second)
+							refreshOptionHeader()
+							optionBuf = ""
+						}()
+						continue
+					}
+
+					refreshOptionHeader()
+					waitingSortOption = false
+					optionBuf = ""
+					continue
+				}
+
+				// Handle backspace
+				if e.Type == ui.EventKey && len(optionBuf) > 0 && (e.Key == ui.KeyBackspace || e.Key == ui.KeyBackspace2) {
+					optionBuf = optionBuf[:len(optionBuf)-1]
+					refreshOptionHeader()
+				} else {
+					optionBuf += string(e.Ch)
+				}
+				fmt.Printf("\033[1;1H\033[6;1Hsort by [%s]: %s", opts["sort"], optionBuf)
+			}
+
+			if waitingLimitOption {
+
+				if e.Type == ui.EventKey && e.Key == ui.KeyEnter {
+
+					var n int
+					_, err := fmt.Sscanf(optionBuf, "%d", &n)
+					if err == nil {
+						opts["conns"] = n
+					}
+
+					waitingLimitOption = false
+					optionBuf = ""
+					refreshOptionHeader()
+					continue
+				}
+
+				// Handle backspace
+				if e.Type == ui.EventKey && len(optionBuf) > 0 && (e.Key == ui.KeyBackspace || e.Key == ui.KeyBackspace2) {
+					optionBuf = optionBuf[:len(optionBuf)-1]
+					refreshOptionHeader()
+				} else {
+					optionBuf += string(e.Ch)
+				}
+				fmt.Printf("\033[1;1H\033[6;1Hlimit   [%d]: %s", opts["conns"], optionBuf)
+			}
+
+			if e.Type == ui.EventKey && e.Ch == 'q' {
+				cleanExit()
+			}
+
+			if e.Type == ui.EventKey && viewMode == HelpViewMode {
+				ui.Body.Rows = topViewGrid.Rows
+				viewMode = TopViewMode
+				continue
+			}
+
+			if e.Type == ui.EventKey && e.Ch == 'o' && !waitingLimitOption && viewMode == TopViewMode {
+				fmt.Printf("\033[1;1H\033[6;1Hsort by [%s]:", opts["sort"])
+				waitingSortOption = true
+			}
+
+			if e.Type == ui.EventKey && e.Ch == 'n' && !waitingSortOption && viewMode == TopViewMode {
+				fmt.Printf("\033[1;1H\033[6;1Hlimit   [%d]:", opts["conns"])
+				waitingLimitOption = true
+			}
+
+			if e.Type == ui.EventKey && (e.Ch == '?' || e.Ch == 'h') && !(waitingSortOption || waitingLimitOption) {
+				if viewMode == TopViewMode {
+					refreshOptionHeader()
+					optionBuf = ""
+				}
+
+				ui.Body.Rows = helpViewGrid.Rows
+				viewMode = HelpViewMode
+				waitingLimitOption = false
+				waitingSortOption = false
+			}
+
+			if e.Type == ui.EventResize {
+				ui.Body.Width = ui.TermWidth()
+				ui.Body.Align()
+				go func() { redraw <- struct{}{} }()
+			}
+
+		case <-redraw:
+			ui.Render(ui.Body)
+		}
+	}
+}
+
+func generateHelp() string {
+	text := `
+Command          Description
+
+o<option>        Set primary sort key to <option>.
+
+                 Option can be one of: {cid|subs|msgs_to|msgs_from|
+                 bytes_to, bytes_from}
+
+                 This can be set in the command line too with -sort flag.
+
+n<limit>         Set sample size of connections to request from the server.
+
+                 This can be set in the command line as well via -n flag.
+                 Note that if used in conjunction with sort, the server 
+                 would respect both options allowing queries like 'connection
+                 with largest number of subscriptions': -n 1 -sort subs
+
+q                Quit nats-top
+
+Press any key to continue...
+
+`
+	return text
 }

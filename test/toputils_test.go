@@ -1,25 +1,38 @@
 package test
 
 import (
+	"net/http"
 	"testing"
 
 	"github.com/nats-io/gnatsd/server"
-	natstest "github.com/nats-io/gnatsd/test"
+	gnatsd "github.com/nats-io/gnatsd/test"
 	. "github.com/nats-io/nats-top/util"
 )
 
+// Borrowed from gnatsd tests
+const GNATSD_PORT = 11422
+
+func runMonitorServer(monitorPort int) *server.Server {
+	resetPreviousHTTPConnections()
+	opts := gnatsd.DefaultTestOptions
+	opts.Host = "127.0.0.1"
+	opts.Port = GNATSD_PORT
+	opts.HTTPPort = monitorPort
+
+	return gnatsd.RunServer(&opts)
+}
+
+func resetPreviousHTTPConnections() {
+	http.DefaultTransport = &http.Transport{}
+}
+
 func TestFetchingStatz(t *testing.T) {
 	params := make(map[string]interface{})
-	natsHttpPort := 8222
-
 	params["host"] = "127.0.0.1"
-	params["port"] = natsHttpPort
+	params["port"] = server.DEFAULT_HTTP_PORT
 
-	opts := natstest.DefaultTestOptions
-	opts.Port = 8888
-	opts.HTTPPort = natsHttpPort
-
-	s := natstest.RunServer(&opts)
+	s := runMonitorServer(server.DEFAULT_HTTP_PORT)
+	defer s.Shutdown()
 
 	// Getting Varz
 	var varz *server.Varz

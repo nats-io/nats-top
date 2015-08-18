@@ -1,4 +1,7 @@
 
+- [X] Show lang and version of client
+- [X] Dashboard style for metrics
+- [X] top like sort and limit
 - [ ] Include /routesz info
-- [ ] Show lang and version of client
-- [ ] Dashboard style for metrics
+- [ ] Enable prepend '+/-' for asc/desc sorting
+- [ ] Toggle for displaying subscriptions info per conn
