@@ -23,8 +23,6 @@ Connections: 4
   127.0.0.1:56151      5        8       0           11.4K       11.5K       1014.6K     1.0M        go       1.1.0
 ```
 
-![Graphs](https://cloud.githubusercontent.com/assets/26195/9292536/ad64c034-43b5-11e5-8e34-1eb3d3521bc9.png)
-
 ## Install
 
 Can be installed via `go get`:
