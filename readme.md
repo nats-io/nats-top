@@ -25,10 +25,6 @@ Connections: 4
 
 ![Graphs](https://cloud.githubusercontent.com/assets/26195/9292536/ad64c034-43b5-11e5-8e34-1eb3d3521bc9.png)
 
-## Demo
-
-[![asciicast](https://asciinema.org/a/aayxym1taisg8s9wba5lzdz55.png)](https://asciinema.org/a/aayxym1taisg8s9wba5lzdz55)
-
 ## Install
 
 Can be installed via `go get`:
@@ -62,10 +58,6 @@ nats-top [-s server] [-m monitor] [-n num_connections] [-d delay_in_secs] [-sort
 ## Commands
 
 While in top view, it is possible to use the following commands:
-
-- **[space]**
-
-  Switch to dashboard view with graphs.  Press SPACE again to return to top view.
 
 - **o [option]**
 
