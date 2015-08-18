@@ -249,7 +249,7 @@ func generateParagraph(
 		"MSGS_TO", "MSGS_FROM", "BYTES_TO", "BYTES_FROM",
 		"LANG", "VERSION")
 	text += connRows
-	connValues := "  %-20s %-8d %-6d  %-10d  %-10s  %-10s  %-10s  %-10s  %-7s  %-7s\n"
+	connValues := "  %-20s %-8d %-6d  %-10s  %-10s  %-10s  %-10s  %-10s  %-7s  %-7s\n"
 
 	switch opts["sort"] {
 	case SortByCid:
@@ -268,7 +268,7 @@ func generateParagraph(
 
 	for _, conn := range stats.Connz.Conns {
 		host := fmt.Sprintf("%s:%d", conn.IP, conn.Port)
-		connLine := fmt.Sprintf(connValues, host, conn.Cid, conn.NumSubs, conn.Pending,
+		connLine := fmt.Sprintf(connValues, host, conn.Cid, conn.NumSubs, Psize(int64(conn.Pending)),
 			Psize(conn.OutMsgs), Psize(conn.InMsgs), Psize(conn.OutBytes), Psize(conn.InBytes),
 			conn.Lang, conn.Version)
 		text += connLine
