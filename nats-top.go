@@ -281,7 +281,6 @@ type ViewMode int
 
 const (
 	TopViewMode ViewMode = iota
-	DashboardViewMode
 	HelpViewMode
 )
 
@@ -310,117 +309,13 @@ func StartUI(
 	helpPar.Width = ui.TermWidth()
 	helpPar.HasBorder = false
 
-	// cpu and conns share the same space in the grid so handled differently
-	cpuChart := ui.NewGauge()
-	cpuChart.Border.Label = "Cpu: "
-	cpuChart.Height = ui.TermHeight() / 7
-	cpuChart.BarColor = ui.ColorGreen
-	cpuChart.PercentColor = ui.ColorBlue
-
-	connsChart := ui.NewLineChart()
-	connsChart.Border.Label = "Connections: "
-	connsChart.Height = ui.TermHeight() / 5
-	connsChart.Mode = "dot"
-	connsChart.AxesColor = ui.ColorWhite
-	connsChart.LineColor = ui.ColorYellow | ui.AttrBold
-	connsChart.Data = []float64{0}
-
-	// All other boxes of the same size
-	boxHeight := ui.TermHeight() / 3
-
-	memChart := ui.NewLineChart()
-	memChart.Border.Label = "Memory: "
-	memChart.Height = boxHeight
-	memChart.Mode = "dot"
-	memChart.AxesColor = ui.ColorWhite
-	memChart.LineColor = ui.ColorYellow | ui.AttrBold
-	memChart.Data = []float64{0.0}
-
-	inMsgsChartLine := ui.Sparkline{}
-	inMsgsChartLine.Height = boxHeight - boxHeight/7
-	inMsgsChartLine.LineColor = ui.ColorCyan
-	inMsgsChartLine.TitleColor = ui.ColorWhite
-	inMsgsChartBox := ui.NewSparklines(inMsgsChartLine)
-	inMsgsChartLine.Data = []int{0}
-	inMsgsChartBox.Height = boxHeight
-	inMsgsChartBox.Border.Label = "In: Msgs/Sec: "
-
-	inBytesChartLine := ui.Sparkline{}
-	inBytesChartLine.Height = boxHeight - boxHeight/7
-	inBytesChartLine.LineColor = ui.ColorCyan
-	inBytesChartLine.TitleColor = ui.ColorWhite
-	inBytesChartLine.Data = []int{0}
-	inBytesChartBox := ui.NewSparklines(inBytesChartLine)
-	inBytesChartBox.Height = boxHeight
-	inBytesChartBox.Border.Label = "In: Bytes/Sec: "
-
-	outMsgsChartLine := ui.Sparkline{}
-	outMsgsChartLine.Height = boxHeight - boxHeight/7
-	outMsgsChartLine.LineColor = ui.ColorGreen
-	outMsgsChartLine.TitleColor = ui.ColorWhite
-	outMsgsChartLine.Data = []int{0}
-	outMsgsChartBox := ui.NewSparklines(outMsgsChartLine)
-	outMsgsChartBox.Height = boxHeight
-	outMsgsChartBox.Border.Label = "Out: Msgs/Sec: "
-
-	outBytesChartLine := ui.Sparkline{}
-	outBytesChartLine.Height = boxHeight - boxHeight/7
-	outBytesChartLine.LineColor = ui.ColorGreen
-	outBytesChartLine.TitleColor = ui.ColorWhite
-	outBytesChartLine.Data = []int{0}
-	outBytesChartBox := ui.NewSparklines(outBytesChartLine)
-	outBytesChartBox.Height = boxHeight
-	outBytesChartBox.Border.Label = "Out: Bytes/Sec: "
-
-	// Dashboard like view
-	//
-	// ....cpu.........  ...mem.........
-	// .              .  .             .
-	// .              .  .             .
-	// ....conns.......  .             .
-	// .              .  .             .
-	// .              .  .             .
-	// ................  ...............
-	//
-	// ..in msgs/sec...  ..in bytes/sec.
-	// .              .  .             .
-	// .              .  .             .
-	// .              .  .             .
-	// .              .  .             .
-	// ................  ...............
-	//
-	// ..out msgs/sec..  .out bytes/sec.
-	// .              .  .             .
-	// .              .  .             .
-	// .              .  .             .
-	// .              .  .             .
-	// ................  ...............
-	//
-	cpuMemConnsCharts := ui.NewRow(
-		ui.NewCol(6, 0, cpuChart, connsChart),
-		ui.NewCol(6, 0, memChart),
-	)
-
-	inCharts := ui.NewRow(
-		ui.NewCol(6, 0, inMsgsChartBox),
-		ui.NewCol(6, 0, inBytesChartBox),
-	)
-
-	outCharts := ui.NewRow(
-		ui.NewCol(6, 0, outMsgsChartBox),
-		ui.NewCol(6, 0, outBytesChartBox),
-	)
-
 	// Top like view
-	//
 	paraRow := ui.NewRow(ui.NewCol(ui.TermWidth(), 0, par))
 
 	// Help view
-	//
 	helpParaRow := ui.NewRow(ui.NewCol(ui.TermWidth(), 0, helpPar))
 
 	// Create grids that we'll be using to toggle what to render
-	dashboardGrid := ui.NewGrid(cpuMemConnsCharts, inCharts, outCharts)
 	topViewGrid := ui.NewGrid(paraRow)
 	helpViewGrid := ui.NewGrid(helpParaRow)
 
@@ -430,7 +325,6 @@ func StartUI(
 
 	// Used to toggle back to previous mode
 	viewMode := TopViewMode
-	prevMode := TopViewMode
 
 	// Used for pinging the IU to refresh the screen with new values
 	redraw := make(chan struct{})
@@ -439,63 +333,9 @@ func StartUI(
 		for {
 			stats := <-statsCh
 
-			// Snapshot current stats
-			cpu := stats.Varz.CPU
-			memVal := stats.Varz.Mem
-			numConns := stats.Connz.NumConns
-			inMsgsRate := stats.Rates.InMsgsRate
-			outMsgsRate := stats.Rates.OutMsgsRate
-			inBytesRate := stats.Rates.InBytesRate
-			outBytesRate := stats.Rates.OutBytesRate
-
-			var maxConn int
-			if stats.Varz.Options != nil {
-				maxConn = stats.Varz.Options.MaxConn
-			}
-
 			// Update top view text
 			text = generateParagraph(opts, stats)
 			par.Text = text
-
-			// Update dashboard components
-			cpuChart.Border.Label = fmt.Sprintf("CPU: %.1f%% ", cpu)
-			cpuChart.Percent = int(cpu)
-
-			connsChart.Border.Label = fmt.Sprintf("Connections: %d/%d ", numConns, maxConn)
-			connsChart.Data = append(connsChart.Data, float64(numConns))
-			if len(connsChart.Data) > 150 {
-				connsChart.Data = connsChart.Data[1:150]
-			}
-
-			memChart.Border.Label = fmt.Sprintf("Memory: %s", Psize(memVal))
-			memChart.Data = append(memChart.Data, float64(memVal/1024/1024))
-			if len(memChart.Data) > 150 {
-				memChart.Data = memChart.Data[1:150]
-			}
-
-			inMsgsChartBox.Border.Label = fmt.Sprintf("In: Msgs/Sec: %.1f ", inMsgsRate)
-			inMsgsChartBox.Lines[0].Data = append(inMsgsChartBox.Lines[0].Data, int(inMsgsRate))
-			if len(inMsgsChartBox.Lines[0].Data) > 150 {
-				inMsgsChartBox.Lines[0].Data = inMsgsChartBox.Lines[0].Data[1:150]
-			}
-
-			inBytesChartBox.Border.Label = fmt.Sprintf("In: Bytes/Sec: %s ", Psize(int64(inBytesRate)))
-			inBytesChartBox.Lines[0].Data = append(inBytesChartBox.Lines[0].Data, int(inBytesRate))
-			if len(inBytesChartBox.Lines[0].Data) > 150 {
-				inBytesChartBox.Lines[0].Data = inBytesChartBox.Lines[0].Data[1:150]
-			}
-
-			outMsgsChartBox.Border.Label = fmt.Sprintf("Out: Msgs/Sec: %.1f ", outMsgsRate)
-			outMsgsChartBox.Lines[0].Data = append(outMsgsChartBox.Lines[0].Data, int(outMsgsRate))
-			if len(outMsgsChartBox.Lines[0].Data) > 150 {
-				outMsgsChartBox.Lines[0].Data = outMsgsChartBox.Lines[0].Data[1:150]
-			}
-
-			outBytesChartBox.Border.Label = fmt.Sprintf("Out: Bytes/Sec: %s ", Psize(int64(outBytesRate)))
-			outBytesChartBox.Lines[0].Data = append(outBytesChartBox.Lines[0].Data, int(outBytesRate))
-			if len(outBytesChartBox.Lines[0].Data) > 150 {
-				outBytesChartBox.Lines[0].Data = outBytesChartBox.Lines[0].Data[1:150]
-			}
 
 			redraw <- struct{}{}
 		}
@@ -598,16 +438,8 @@ func StartUI(
 			}
 
 			if e.Type == ui.EventKey && viewMode == HelpViewMode {
-				switch prevMode {
-				case TopViewMode:
-					ui.Body.Rows = topViewGrid.Rows
-					viewMode = TopViewMode
-					prevMode = HelpViewMode
-				case DashboardViewMode:
-					ui.Body.Rows = dashboardGrid.Rows
-					viewMode = DashboardViewMode
-					prevMode = HelpViewMode
-				}
+				ui.Body.Rows = topViewGrid.Rows
+				viewMode = TopViewMode
 				continue
 			}
 
@@ -628,61 +460,13 @@ func StartUI(
 				}
 
 				ui.Body.Rows = helpViewGrid.Rows
-				prevMode = viewMode
 				viewMode = HelpViewMode
 				waitingLimitOption = false
 				waitingSortOption = false
 			}
 
-			if e.Type == ui.EventKey && e.Key == ui.KeySpace {
-
-				// Toggle between one of the views
-				switch viewMode {
-				case TopViewMode:
-					refreshOptionHeader()
-					ui.Body.Rows = dashboardGrid.Rows
-					viewMode = DashboardViewMode
-					prevMode = TopViewMode
-				case DashboardViewMode:
-					ui.Body.Rows = topViewGrid.Rows
-					viewMode = TopViewMode
-					prevMode = DashboardViewMode
-				}
-
-				waitingSortOption = false
-				waitingLimitOption = false
-				ui.Body.Align()
-			}
-
 			if e.Type == ui.EventResize {
-
-				// Redraw the graphs on resize while in dashboard view
-				switch viewMode {
-				case DashboardViewMode:
-					ui.Body.Width = ui.TermWidth()
-
-					// Refresh size of boxes accordingly
-					cpuChart.Height = ui.TermHeight() / 7
-					connsChart.Height = ui.TermHeight() / 5
-
-					boxHeight := ui.TermHeight() / 3
-					lineHeight := boxHeight - boxHeight/7
-
-					memChart.Height = boxHeight
-
-					inMsgsChartBox.Height = boxHeight
-					inMsgsChartBox.Lines[0].Height = lineHeight
-
-					outMsgsChartBox.Height = boxHeight
-					outMsgsChartBox.Lines[0].Height = lineHeight
-
-					inBytesChartBox.Height = boxHeight
-					inBytesChartBox.Lines[0].Height = lineHeight
-
-					outBytesChartBox.Height = boxHeight
-					outBytesChartBox.Lines[0].Height = lineHeight
-				}
-
+				ui.Body.Width = ui.TermWidth()
 				ui.Body.Align()
 				go func() { redraw <- struct{}{} }()
 			}
@@ -696,9 +480,6 @@ func StartUI(
 func generateHelp() string {
 	text := `
 Command          Description
-
-space            Switch to dashboard view with graphs.
-                 Press SPACE again to return to top view.
 
 o<option>        Set primary sort key to <option>.
 
