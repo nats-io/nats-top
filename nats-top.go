@@ -69,10 +69,11 @@ func main() {
 	defer ui.Close()
 
 	statsCh := make(chan *Stats)
+	shutdownCh := make(chan struct{})
 
-	go monitorStats(opts, statsCh)
+	go MonitorStats(opts, statsCh, shutdownCh)
 
-	StartUI(opts, statsCh)
+	StartUI(opts, statsCh, shutdownCh)
 }
 
 // clearScreen tries to ensure resetting original state of screen
@@ -92,112 +93,6 @@ func cleanExit() {
 func exitWithError() {
 	ui.Close()
 	os.Exit(1)
-}
-
-// monitorStats can be ran as a goroutine and takes options
-// which can modify how to do the polling
-func monitorStats(
-	opts map[string]interface{},
-	statsCh chan *Stats,
-) {
-	var pollTime time.Time
-
-	var inMsgsDelta int64
-	var outMsgsDelta int64
-	var inBytesDelta int64
-	var outBytesDelta int64
-
-	var inMsgsLastVal int64
-	var outMsgsLastVal int64
-	var inBytesLastVal int64
-	var outBytesLastVal int64
-
-	var inMsgsRate float64
-	var outMsgsRate float64
-	var inBytesRate float64
-	var outBytesRate float64
-
-	first := true
-	pollTime = time.Now()
-
-	var delay int
-	if val, ok := opts["delay"].(int); ok {
-		delay = val
-	} else {
-		log.Fatalf("error: could not use %s as a refreshing interval", opts["delay"])
-		return
-	}
-
-	for {
-		// Wrap collected info in a Stats struct
-		stats := &Stats{
-			Varz:  &gnatsd.Varz{},
-			Connz: &gnatsd.Connz{},
-			Rates: &Rates{},
-		}
-
-		// Get /varz
-		{
-			result, err := Request("/varz", opts)
-			if err == nil {
-				if varz, ok := result.(*gnatsd.Varz); ok {
-					stats.Varz = varz
-				}
-			}
-		}
-
-		// Get /connz
-		{
-			result, err := Request("/connz", opts)
-			if err == nil {
-				if connz, ok := result.(*gnatsd.Connz); ok {
-					stats.Connz = connz
-				}
-			}
-		}
-
-		// Periodic snapshot to get per sec metrics
-		inMsgsVal := stats.Varz.InMsgs
-		outMsgsVal := stats.Varz.OutMsgs
-		inBytesVal := stats.Varz.InBytes
-		outBytesVal := stats.Varz.OutBytes
-
-		inMsgsDelta = inMsgsVal - inMsgsLastVal
-		outMsgsDelta = outMsgsVal - outMsgsLastVal
-		inBytesDelta = inBytesVal - inBytesLastVal
-		outBytesDelta = outBytesVal - outBytesLastVal
-
-		inMsgsLastVal = inMsgsVal
-		outMsgsLastVal = outMsgsVal
-		inBytesLastVal = inBytesVal
-		outBytesLastVal = outBytesVal
-
-		now := time.Now()
-		tdelta := now.Sub(pollTime)
-		pollTime = now
-
-		// Calculate rates but the first time
-		if first {
-			first = false
-		} else {
-			inMsgsRate = float64(inMsgsDelta) / tdelta.Seconds()
-			outMsgsRate = float64(outMsgsDelta) / tdelta.Seconds()
-			inBytesRate = float64(inBytesDelta) / tdelta.Seconds()
-			outBytesRate = float64(outBytesDelta) / tdelta.Seconds()
-		}
-
-		stats.Rates = &Rates{
-			InMsgsRate:   inMsgsRate,
-			OutMsgsRate:  outMsgsRate,
-			InBytesRate:  inBytesRate,
-			OutBytesRate: outBytesRate,
-		}
-
-		// Send update
-		statsCh <- stats
-
-		time.Sleep(time.Duration(delay) * time.Second)
-	}
 }
 
 // generateParagraph takes an options map and latest Stats
@@ -289,6 +184,7 @@ const (
 func StartUI(
 	opts map[string]interface{},
 	statsCh chan *Stats,
+	shutdownCh chan struct{},
 ) {
 
 	cleanStats := &Stats{
@@ -432,6 +328,7 @@ func StartUI(
 			}
 
 			if e.Type == ui.EventKey && e.Ch == 'q' {
+				close(shutdownCh)
 				cleanExit()
 			}
 
