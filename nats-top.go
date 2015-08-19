@@ -366,7 +366,7 @@ func StartUI(
 				cleanExit()
 			}
 
-			if e.Type == ui.EventKey && e.Ch == 's' {
+			if e.Type == ui.EventKey && e.Ch == 's' && !(waitingLimitOption || waitingSortOption) {
 				if displaySubscriptions {
 					displaySubscriptions = false
 					opts["subs"] = false
