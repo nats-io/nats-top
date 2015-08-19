@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"sort"
+	"strings"
 	"time"
 
 	ui "github.com/gizak/termui"
@@ -139,13 +140,35 @@ func generateParagraph(
 		outMsgs, outBytes, outMsgsRate, outBytesRate)
 	text += fmt.Sprintf("\n\nConnections: %d\n", numConns)
 
-	connHeader := "  %-20s %-8s %-6s  %-10s  %-10s  %-10s  %-10s  %-10s  %-7s  %-7s\n"
+	var displaySubs bool
+	if val, ok := opts["subs"]; ok {
+		displaySubs = val.(bool)
+	}
 
-	connRows := fmt.Sprintf(connHeader, "HOST", "CID", "SUBS", "PENDING",
-		"MSGS_TO", "MSGS_FROM", "BYTES_TO", "BYTES_FROM",
-		"LANG", "VERSION")
+	connHeader := "  %-20s %-8s %-6s  %-10s  %-10s  %-10s  %-10s  %-10s  %-7s  %-7s "
+	if displaySubs {
+		connHeader += "%13s"
+	}
+	connHeader += "\n"
+
+	var connRows string
+	var connValues string
+	if displaySubs {
+		connRows = fmt.Sprintf(connHeader, "HOST", "CID", "SUBS", "PENDING",
+			"MSGS_TO", "MSGS_FROM", "BYTES_TO", "BYTES_FROM",
+			"LANG", "VERSION", "SUBSCRIPTIONS")
+	} else {
+		connRows = fmt.Sprintf(connHeader, "HOST", "CID", "SUBS", "PENDING",
+			"MSGS_TO", "MSGS_FROM", "BYTES_TO", "BYTES_FROM",
+			"LANG", "VERSION")
+	}
 	text += connRows
-	connValues := "  %-20s %-8d %-6d  %-10s  %-10s  %-10s  %-10s  %-10s  %-7s  %-7s\n"
+
+	connValues = "  %-20s %-8d %-6d  %-10s  %-10s  %-10s  %-10s  %-10s  %-7s  %-7s "
+	if displaySubs {
+		connValues += "%s"
+	}
+	connValues += "\n"
 
 	switch opts["sort"] {
 	case SortByCid:
@@ -164,9 +187,19 @@ func generateParagraph(
 
 	for _, conn := range stats.Connz.Conns {
 		host := fmt.Sprintf("%s:%d", conn.IP, conn.Port)
-		connLine := fmt.Sprintf(connValues, host, conn.Cid, conn.NumSubs, Psize(int64(conn.Pending)),
-			Psize(conn.OutMsgs), Psize(conn.InMsgs), Psize(conn.OutBytes), Psize(conn.InBytes),
-			conn.Lang, conn.Version)
+
+		var connLine string
+		if displaySubs {
+			subs := strings.Join(conn.Subs, ", ")
+			connLine = fmt.Sprintf(connValues, host, conn.Cid, conn.NumSubs, Psize(int64(conn.Pending)),
+				Psize(conn.OutMsgs), Psize(conn.InMsgs), Psize(conn.OutBytes), Psize(conn.InBytes),
+				conn.Lang, conn.Version, subs)
+		} else {
+			connLine = fmt.Sprintf(connValues, host, conn.Cid, conn.NumSubs, Psize(int64(conn.Pending)),
+				Psize(conn.OutMsgs), Psize(conn.InMsgs), Psize(conn.OutBytes), Psize(conn.InBytes),
+				conn.Lang, conn.Version)
+		}
+
 		text += connLine
 	}
 
@@ -241,6 +274,7 @@ func StartUI(
 	// Flags for capturing options
 	waitingSortOption := false
 	waitingLimitOption := false
+	displaySubscriptions := false
 
 	optionBuf := ""
 	refreshOptionHeader := func() {
@@ -332,6 +366,16 @@ func StartUI(
 				cleanExit()
 			}
 
+			if e.Type == ui.EventKey && e.Ch == 's' {
+				if displaySubscriptions {
+					displaySubscriptions = false
+					opts["subs"] = false
+				} else {
+					displaySubscriptions = true
+					opts["subs"] = true
+				}
+			}
+
 			if e.Type == ui.EventKey && viewMode == HelpViewMode {
 				ui.Body.Rows = topViewGrid.Rows
 				viewMode = TopViewMode
@@ -390,7 +434,9 @@ n<limit>         Set sample size of connections to request from the server.
                  would respect both options allowing queries like 'connection
                  with largest number of subscriptions': -n 1 -sort subs
 
-q                Quit nats-top
+s                Toggle displaying connection subscriptions.
+
+q                Quit nats-top.
 
 Press any key to continue...
 
