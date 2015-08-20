@@ -58,7 +58,7 @@ func TestFetchingStatz(t *testing.T) {
 	go func() {
 		conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", GNATSD_PORT))
 		if err != nil {
-			t.Fatalf("could not create subcription to NATS: ", err)
+			t.Fatalf("could not create subcription to NATS: %s", err)
 		}
 		fmt.Fprintf(conn, "SUB hello.world  90\r\n")
 		time.Sleep(5 * time.Second)
