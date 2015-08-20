@@ -1,6 +1,8 @@
 package test
 
 import (
+	"fmt"
+	"net"
 	"net/http"
 	"testing"
 	"time"
@@ -52,6 +54,18 @@ func TestFetchingStatz(t *testing.T) {
 		t.Fatalf("Could not monitor number of cores. got: %v", got)
 	}
 
+	// Create simple subscription to gnatsd port to show subscriptions
+	go func() {
+		conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", GNATSD_PORT))
+		if err != nil {
+			t.Fatalf("could not create subcription to NATS: ", err)
+		}
+		fmt.Fprintf(conn, "SUB hello.world  90\r\n")
+		time.Sleep(5 * time.Second)
+		conn.Close()
+	}()
+	time.Sleep(1 * time.Second)
+
 	var connz *server.Connz
 	result, err = Request("/connz", params)
 	if err != nil {
@@ -62,10 +76,26 @@ func TestFetchingStatz(t *testing.T) {
 		connz = connzVal
 	}
 
-	// Check for default value of connections limit
-	got = connz.Limit
-	if got != 1024 {
-		t.Fatalf("Could not monitor limit of connections. got: %v", got)
+	// Check that we got connections
+	got = len(connz.Conns)
+	if got <= 0 {
+		t.Fatalf("Could not monitor with subscriptions option. expected non-nil conns, got: %v", got)
+	}
+
+	params["subs"] = true
+	result, err = Request("/connz", params)
+	if err != nil {
+		t.Fatalf("Failed getting /connz: %v", err)
+	}
+
+	if connzVal, ok := result.(*server.Connz); ok {
+		connz = connzVal
+	}
+
+	// Check that we got subscriptions
+	got = len(connz.Conns[0].Subs)
+	if got <= 0 {
+		t.Fatalf("Could not monitor with client subscriptions. expected client with subscriptions, got: %v", got)
 	}
 
 	s.Shutdown()

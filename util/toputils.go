@@ -10,6 +10,8 @@ import (
 	gnatsd "github.com/nats-io/gnatsd/server"
 )
 
+const DisplaySubscriptions = 1
+
 // Request takes a path and options, and returns a Stats struct
 // with with either connz or varz
 func Request(path string, opts map[string]interface{}) (interface{}, error) {
@@ -22,6 +24,11 @@ func Request(path string, opts map[string]interface{}) (interface{}, error) {
 	case "/connz":
 		statz = &gnatsd.Connz{}
 		uri += fmt.Sprintf("?limit=%d&sort=%s", opts["conns"], opts["sort"])
+		if displaySubs, ok := opts["subs"]; ok {
+			if displaySubs.(bool) {
+				uri += fmt.Sprintf("&subs=%d", DisplaySubscriptions)
+			}
+		}
 	default:
 		return nil, fmt.Errorf("invalid path '%s' for stats server", path)
 	}
