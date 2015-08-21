@@ -1,6 +1,6 @@
 # nats-top
 
-[![MIT License](http://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](https://github.com/nats-io/nats-top/blob/master/LICENSE)[![Build Status](https://travis-ci.org/nats-io/nats-top.svg?branch=master)](http://travis-ci.org/nats-io/nats-top)
+[![MIT License](http://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](https://github.com/nats-io/nats-top/blob/master/LICENSE)[![Build Status](https://travis-ci.org/nats-io/nats-top.svg?branch=master)](http://travis-ci.org/nats-io/nats-top)[![GitHub release](http://img.shields.io/github/release/nats-io/nats-top.svg?style=flat-square)](https://github.com/nats-io/nats-top/releases)
 
 `nats-top` is a `top`-like tool for monitoring gnatsd servers.
 
