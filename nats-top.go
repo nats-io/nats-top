@@ -56,7 +56,7 @@ func main() {
 
 	sortOpt := gnatsd.SortOpt(*sortBy)
 	switch sortOpt {
-	case SortByCid, SortBySubs, SortByOutMsgs, SortByInMsgs, SortByOutBytes, SortByInBytes:
+	case SortByCid, SortBySubs, SortByPending, SortByOutMsgs, SortByInMsgs, SortByOutBytes, SortByInBytes:
 		opts["sort"] = sortOpt
 	default:
 		log.Printf("nats-top: not a valid option to sort by: %s\n", sortOpt)
@@ -175,6 +175,8 @@ func generateParagraph(
 		sort.Sort(ByCid(stats.Connz.Conns))
 	case SortBySubs:
 		sort.Sort(sort.Reverse(BySubs(stats.Connz.Conns)))
+	case SortByPending:
+		sort.Sort(sort.Reverse(ByPending(stats.Connz.Conns)))
 	case SortByOutMsgs:
 		sort.Sort(sort.Reverse(ByMsgsTo(stats.Connz.Conns)))
 	case SortByInMsgs:
@@ -304,7 +306,7 @@ func StartUI(
 
 					sortOpt := gnatsd.SortOpt(optionBuf)
 					switch sortOpt {
-					case SortByCid, SortBySubs, SortByOutMsgs, SortByInMsgs, SortByOutBytes, SortByInBytes:
+					case SortByCid, SortBySubs, SortByPending, SortByOutMsgs, SortByInMsgs, SortByOutBytes, SortByInBytes:
 						opts["sort"] = sortOpt
 					default:
 						go func() {
@@ -422,7 +424,7 @@ Command          Description
 
 o<option>        Set primary sort key to <option>.
 
-                 Option can be one of: {cid|subs|msgs_to|msgs_from|
+                 Option can be one of: {cid|subs|pending|msgs_to|msgs_from|
                  bytes_to, bytes_from}
 
                  This can be set in the command line too with -sort flag.

@@ -20,6 +20,7 @@ type Rates struct {
 const (
 	SortByCid      server.SortOpt = "cid"
 	SortBySubs                    = "subs"
+	SortByPending                 = "pending"
 	SortByOutMsgs                 = "msgs_to"
 	SortByInMsgs                  = "msgs_from"
 	SortByOutBytes                = "bytes_to"
