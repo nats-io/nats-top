@@ -1,4 +1,4 @@
-package test
+package toputils
 
 import (
 	"fmt"
@@ -9,7 +9,6 @@ import (
 
 	"github.com/nats-io/gnatsd/server"
 	gnatsd "github.com/nats-io/gnatsd/test"
-	. "github.com/nats-io/nats-top/util"
 )
 
 // Borrowed from gnatsd tests
