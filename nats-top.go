@@ -363,7 +363,7 @@ func StartUI(
 				fmt.Printf("\033[1;1H\033[6;1Hlimit   [%d]: %s", opts["conns"], optionBuf)
 			}
 
-			if e.Type == ui.EventKey && e.Ch == 'q' {
+			if e.Type == ui.EventKey && (e.Ch == 'q' || e.Key == ui.KeyCtrlC) {
 				close(shutdownCh)
 				cleanExit()
 			}
