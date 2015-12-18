@@ -113,7 +113,6 @@ func MonitorStats(
 	for {
 		select {
 		case <-shutdownCh:
-			close(shutdownCh)
 			return nil
 		case <-time.After(delay):
 			// Get /varz
