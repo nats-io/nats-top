@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	ui "github.com/gizak/termui"
+	ui "gopkg.in/gizak/termui.v1"
 	gnatsd "github.com/nats-io/gnatsd/server"
 	. "github.com/nats-io/nats-top/util"
 )
@@ -432,7 +432,7 @@ o<option>        Set primary sort key to <option>.
 n<limit>         Set sample size of connections to request from the server.
 
                  This can be set in the command line as well via -n flag.
-                 Note that if used in conjunction with sort, the server 
+                 Note that if used in conjunction with sort, the server
                  would respect both options allowing queries like 'connection
                  with largest number of subscriptions': -n 1 -sort subs
 
