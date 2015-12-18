@@ -7,6 +7,8 @@ install:
 - mkdir -p "$DST"
 - git clone --depth=1 --quiet https://github.com/nats-io/gnatsd.git "$DST"/gnatsd
 - go get golang.org/x/tools/cmd/vet
+- go get gopkg.in/gizak/termui.v1
+- go get golang.org/x/crypto/bcrypt
 
 script:
   - go get -d -v ./...
