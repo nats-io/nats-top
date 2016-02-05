@@ -145,7 +145,7 @@ func generateParagraph(
 		displaySubs = val.(bool)
 	}
 
-	connHeader := "  %-20s %-8s %-6s  %-10s  %-10s  %-10s  %-10s  %-10s  %-7s  %-7s  %-7s  %-7s  %-40s"
+	connHeader := "  %-20s %-8s %-15s %-6s  %-10s  %-10s  %-10s  %-10s  %-10s  %-7s  %-7s  %-7s  %-40s"
 	if displaySubs {
 		connHeader += "%13s"
 	}
@@ -154,17 +154,17 @@ func generateParagraph(
 	var connRows string
 	var connValues string
 	if displaySubs {
-		connRows = fmt.Sprintf(connHeader, "HOST", "CID", "SUBS", "PENDING",
+		connRows = fmt.Sprintf(connHeader, "HOST", "CID", "NAME", "SUBS", "PENDING",
 			"MSGS_TO", "MSGS_FROM", "BYTES_TO", "BYTES_FROM",
-			"NAME", "LANG", "VERSION", "UPTIME", "LAST ACTIVITY", "SUBSCRIPTIONS")
+			"LANG", "VERSION", "UPTIME", "LAST ACTIVITY", "SUBSCRIPTIONS")
 	} else {
-		connRows = fmt.Sprintf(connHeader, "HOST", "CID", "SUBS", "PENDING",
+		connRows = fmt.Sprintf(connHeader, "HOST", "CID", "NAME", "SUBS", "PENDING",
 			"MSGS_TO", "MSGS_FROM", "BYTES_TO", "BYTES_FROM",
-			"NAME", "LANG", "VERSION", "UPTIME", "LAST ACTIVITY")
+			"LANG", "VERSION", "UPTIME", "LAST ACTIVITY")
 	}
 	text += connRows
 
-	connValues = "  %-20s %-8d %-6d  %-10s  %-10s  %-10s  %-10s  %-10s  %-7s  %-7s  %-7s  %-7s  %-40s"
+	connValues = "  %-20s %-8d %-15s %-6d  %-10s  %-10s  %-10s  %-10s  %-10s  %-7s  %-7s  %-7s  %-40s"
 	if displaySubs {
 		connValues += "%s"
 	}
@@ -193,13 +193,13 @@ func generateParagraph(
 		var connLine string
 		if displaySubs {
 			subs := strings.Join(conn.Subs, ", ")
-			connLine = fmt.Sprintf(connValues, host, conn.Cid, conn.NumSubs, Psize(int64(conn.Pending)),
+			connLine = fmt.Sprintf(connValues, host, conn.Cid, conn.Name, conn.NumSubs, Psize(int64(conn.Pending)),
 				Psize(conn.OutMsgs), Psize(conn.InMsgs), Psize(conn.OutBytes), Psize(conn.InBytes),
-				conn.Name, conn.Lang, conn.Version, conn.Uptime, conn.LastActivity, subs)
+				conn.Lang, conn.Version, conn.Uptime, conn.LastActivity, subs)
 		} else {
-			connLine = fmt.Sprintf(connValues, host, conn.Cid, conn.NumSubs, Psize(int64(conn.Pending)),
+			connLine = fmt.Sprintf(connValues, host, conn.Cid, conn.Name, conn.NumSubs, Psize(int64(conn.Pending)),
 				Psize(conn.OutMsgs), Psize(conn.InMsgs), Psize(conn.OutBytes), Psize(conn.InBytes),
-				conn.Name, conn.Lang, conn.Version, conn.Uptime, conn.LastActivity)
+				conn.Lang, conn.Version, conn.Uptime, conn.LastActivity)
 		}
 
 		text += connLine
