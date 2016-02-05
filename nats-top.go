@@ -10,12 +10,12 @@ import (
 	"strings"
 	"time"
 
-	ui "gopkg.in/gizak/termui.v1"
 	gnatsd "github.com/nats-io/gnatsd/server"
 	. "github.com/nats-io/nats-top/util"
+	ui "gopkg.in/gizak/termui.v1"
 )
 
-const version = "0.1.0"
+const version = "0.2.0"
 
 var (
 	host        = flag.String("s", "127.0.0.1", "The nats server host.")
@@ -145,7 +145,7 @@ func generateParagraph(
 		displaySubs = val.(bool)
 	}
 
-	connHeader := "  %-20s %-8s %-6s  %-10s  %-10s  %-10s  %-10s  %-10s  %-7s  %-7s "
+	connHeader := "  %-20s %-8s %-6s  %-10s  %-10s  %-10s  %-10s  %-10s  %-7s  %-7s  %-7s  %-40s "
 	if displaySubs {
 		connHeader += "%13s"
 	}
@@ -156,15 +156,15 @@ func generateParagraph(
 	if displaySubs {
 		connRows = fmt.Sprintf(connHeader, "HOST", "CID", "SUBS", "PENDING",
 			"MSGS_TO", "MSGS_FROM", "BYTES_TO", "BYTES_FROM",
-			"LANG", "VERSION", "SUBSCRIPTIONS")
+			"NAME", "LANG", "VERSION", "LAST ACTIVITY", "SUBSCRIPTIONS")
 	} else {
 		connRows = fmt.Sprintf(connHeader, "HOST", "CID", "SUBS", "PENDING",
 			"MSGS_TO", "MSGS_FROM", "BYTES_TO", "BYTES_FROM",
-			"LANG", "VERSION")
+			"NAME", "LANG", "VERSION", "LAST ACTIVITY")
 	}
 	text += connRows
 
-	connValues = "  %-20s %-8d %-6d  %-10s  %-10s  %-10s  %-10s  %-10s  %-7s  %-7s "
+	connValues = "  %-20s %-8d %-6d  %-10s  %-10s  %-10s  %-10s  %-10s  %-7s  %-7s  %-7s  %-40s "
 	if displaySubs {
 		connValues += "%s"
 	}
@@ -195,11 +195,11 @@ func generateParagraph(
 			subs := strings.Join(conn.Subs, ", ")
 			connLine = fmt.Sprintf(connValues, host, conn.Cid, conn.NumSubs, Psize(int64(conn.Pending)),
 				Psize(conn.OutMsgs), Psize(conn.InMsgs), Psize(conn.OutBytes), Psize(conn.InBytes),
-				conn.Lang, conn.Version, subs)
+				conn.Name, conn.Lang, conn.Version, conn.LastActivity, subs)
 		} else {
 			connLine = fmt.Sprintf(connValues, host, conn.Cid, conn.NumSubs, Psize(int64(conn.Pending)),
 				Psize(conn.OutMsgs), Psize(conn.InMsgs), Psize(conn.OutBytes), Psize(conn.InBytes),
-				conn.Lang, conn.Version)
+				conn.Name, conn.Lang, conn.Version, conn.LastActivity)
 		}
 
 		text += connLine
