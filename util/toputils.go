@@ -34,11 +34,13 @@ func Request(path string, opts map[string]interface{}) (interface{}, error) {
 	}
 
 	resp, err := http.Get(uri)
+	if resp != nil {
+		defer resp.Body.Close()
+	}
 	if err != nil {
 		return nil, fmt.Errorf("could not get stats from server: %v\n", err)
 	}
 
-	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("could not read response body: %v\n", err)
@@ -52,7 +54,7 @@ func Request(path string, opts map[string]interface{}) (interface{}, error) {
 	return statz, nil
 }
 
-// Psize takes a float and returns a human readable string
+// Psize takes a float and returns a human readable string.
 func Psize(s int64) string {
 	size := float64(s)
 
