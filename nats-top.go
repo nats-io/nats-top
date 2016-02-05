@@ -145,7 +145,7 @@ func generateParagraph(
 		displaySubs = val.(bool)
 	}
 
-	connHeader := "  %-20s %-8s %-6s  %-10s  %-10s  %-10s  %-10s  %-10s  %-7s  %-7s  %-7s  %-40s "
+	connHeader := "  %-20s %-8s %-6s  %-10s  %-10s  %-10s  %-10s  %-10s  %-7s  %-7s  %-7s  %-7s  %-40s"
 	if displaySubs {
 		connHeader += "%13s"
 	}
@@ -156,15 +156,15 @@ func generateParagraph(
 	if displaySubs {
 		connRows = fmt.Sprintf(connHeader, "HOST", "CID", "SUBS", "PENDING",
 			"MSGS_TO", "MSGS_FROM", "BYTES_TO", "BYTES_FROM",
-			"NAME", "LANG", "VERSION", "LAST ACTIVITY", "SUBSCRIPTIONS")
+			"NAME", "LANG", "VERSION", "UPTIME", "LAST ACTIVITY", "SUBSCRIPTIONS")
 	} else {
 		connRows = fmt.Sprintf(connHeader, "HOST", "CID", "SUBS", "PENDING",
 			"MSGS_TO", "MSGS_FROM", "BYTES_TO", "BYTES_FROM",
-			"NAME", "LANG", "VERSION", "LAST ACTIVITY")
+			"NAME", "LANG", "VERSION", "UPTIME", "LAST ACTIVITY")
 	}
 	text += connRows
 
-	connValues = "  %-20s %-8d %-6d  %-10s  %-10s  %-10s  %-10s  %-10s  %-7s  %-7s  %-7s  %-40s "
+	connValues = "  %-20s %-8d %-6d  %-10s  %-10s  %-10s  %-10s  %-10s  %-7s  %-7s  %-7s  %-7s  %-40s"
 	if displaySubs {
 		connValues += "%s"
 	}
@@ -195,11 +195,11 @@ func generateParagraph(
 			subs := strings.Join(conn.Subs, ", ")
 			connLine = fmt.Sprintf(connValues, host, conn.Cid, conn.NumSubs, Psize(int64(conn.Pending)),
 				Psize(conn.OutMsgs), Psize(conn.InMsgs), Psize(conn.OutBytes), Psize(conn.InBytes),
-				conn.Name, conn.Lang, conn.Version, conn.LastActivity, subs)
+				conn.Name, conn.Lang, conn.Version, conn.Uptime, conn.LastActivity, subs)
 		} else {
 			connLine = fmt.Sprintf(connValues, host, conn.Cid, conn.NumSubs, Psize(int64(conn.Pending)),
 				Psize(conn.OutMsgs), Psize(conn.InMsgs), Psize(conn.OutBytes), Psize(conn.InBytes),
-				conn.Name, conn.Lang, conn.Version, conn.LastActivity)
+				conn.Name, conn.Lang, conn.Version, conn.Uptime, conn.LastActivity)
 		}
 
 		text += connLine
