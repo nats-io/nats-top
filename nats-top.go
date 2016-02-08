@@ -2,9 +2,13 @@
 package main
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"sort"
 	"strings"
@@ -19,15 +23,27 @@ const version = "0.2.0"
 
 var (
 	host        = flag.String("s", "127.0.0.1", "The nats server host.")
-	port        = flag.Int("m", 8222, "The nats server monitoring port.")
+	port        = flag.Int("m", 8222, "The NATS server monitoring port.")
 	conns       = flag.Int("n", 1024, "Maximum number of connections to poll.")
 	delay       = flag.Int("d", 1, "Refresh interval in seconds.")
 	sortBy      = flag.String("sort", "cid", "Value for which to sort by the connections.")
 	showVersion = flag.Bool("v", false, "Show nats-top version.")
+
+	// Secure options
+	httpsPort     = flag.Int("ms", 0, "The NATS server secure monitoring port.")
+	certOpt       = flag.String("cert", "", "Client cert in case NATS server using TLS")
+	keyOpt        = flag.String("key", "", "Client private key in case NATS server using TLS")
+	caCertOpt     = flag.String("cacert", "", "Root CA cert")
+	skipVerifyOpt = flag.Bool("k", false, "Skip verifying server certificate")
 )
 
+var usageHelp = `
+usage: nats-top [-s server] [-m http_port] [-ms https_port] [-n num_connections] [-d delay_secs] [-sort by]
+                [-cert FILE] [-key FILE ][-cacert FILE] [-k]
+`
+
 func usage() {
-	log.Fatalf("Usage: nats-top [-s server] [-m monitor_port] [-n num_connections] [-d delay_secs] [-sort by]\n")
+	log.Fatalf(usageHelp)
 }
 
 func init() {
@@ -43,13 +59,52 @@ func main() {
 		os.Exit(0)
 	}
 
-	opts := map[string]interface{}{}
-	opts["host"] = *host
-	opts["port"] = *port
-	opts["conns"] = *conns
-	opts["delay"] = *delay
+	engine := &Engine{}
+	engine.Conns = *conns
+	engine.Delay = *delay
 
-	if opts["host"] == nil || opts["port"] == nil {
+	// Use secure port if set explicitly, otherwise use http port by default
+	if *httpsPort != 0 {
+		tlsConfig := &tls.Config{}
+		if *caCertOpt != "" {
+			caCert, err := ioutil.ReadFile(*caCertOpt)
+			if err != nil {
+				log.Fatalf("Error: %s", err)
+				usage()
+			}
+			caCertPool := x509.NewCertPool()
+			caCertPool.AppendCertsFromPEM(caCert)
+			tlsConfig.RootCAs = caCertPool
+		}
+
+		if *certOpt != "" && *keyOpt != "" {
+			cert, err := tls.LoadX509KeyPair(*certOpt, *keyOpt)
+			if err != nil {
+				log.Fatalf("Error: %s", err)
+				usage()
+			}
+			tlsConfig.Certificates = []tls.Certificate{cert}
+		}
+
+		if *skipVerifyOpt {
+			tlsConfig.InsecureSkipVerify = true
+		}
+
+		tlsConfig.BuildNameToCertificate()
+		transport := &http.Transport{TLSClientConfig: tlsConfig}
+		engine.HttpClient = &http.Client{Transport: transport}
+		engine.Uri = fmt.Sprintf("https://%s:%d", *host, *httpsPort)
+	} else {
+		engine.HttpClient = &http.Client{}
+		engine.Uri = fmt.Sprintf("http://%s:%d", *host, *port)
+	}
+
+	if *host == "" {
+		log.Fatalf("Please specify the monitoring endpoint for NATS.\n")
+		usage()
+	}
+
+	if *port == 0 && *httpsPort == 0 {
 		log.Fatalf("Please specify the monitoring port for NATS.\n")
 		usage()
 	}
@@ -57,7 +112,7 @@ func main() {
 	sortOpt := gnatsd.SortOpt(*sortBy)
 	switch sortOpt {
 	case SortByCid, SortBySubs, SortByPending, SortByOutMsgs, SortByInMsgs, SortByOutBytes, SortByInBytes:
-		opts["sort"] = sortOpt
+		engine.SortOpt = sortOpt
 	default:
 		log.Printf("nats-top: not a valid option to sort by: %s\n", sortOpt)
 		usage()
@@ -71,10 +126,8 @@ func main() {
 
 	statsCh := make(chan *Stats)
 	shutdownCh := make(chan struct{})
-
-	go MonitorStats(opts, statsCh, shutdownCh)
-
-	StartUI(opts, statsCh, shutdownCh)
+	go engine.MonitorStats(statsCh, shutdownCh)
+	StartUI(engine, statsCh, shutdownCh)
 }
 
 // clearScreen tries to ensure resetting original state of screen
@@ -99,7 +152,7 @@ func exitWithError() {
 // generateParagraph takes an options map and latest Stats
 // then returns a formatted paragraph ready to be rendered
 func generateParagraph(
-	opts map[string]interface{},
+	engine *Engine,
 	stats *Stats,
 ) string {
 
@@ -139,11 +192,7 @@ func generateParagraph(
 		inMsgs, inBytes, inMsgsRate, inBytesRate,
 		outMsgs, outBytes, outMsgsRate, outBytesRate)
 	text += fmt.Sprintf("\n\nConnections: %d\n", numConns)
-
-	var displaySubs bool
-	if val, ok := opts["subs"]; ok {
-		displaySubs = val.(bool)
-	}
+	displaySubs := engine.DisplaySubs
 
 	connHeader := "  %-20s %-8s %-15s %-6s  %-10s  %-10s  %-10s  %-10s  %-10s  %-7s  %-7s  %-7s  %-40s"
 	if displaySubs {
@@ -170,7 +219,7 @@ func generateParagraph(
 	}
 	connValues += "\n"
 
-	switch opts["sort"] {
+	switch engine.SortOpt {
 	case SortByCid:
 		sort.Sort(ByCid(stats.Connz.Conns))
 	case SortBySubs:
@@ -215,9 +264,9 @@ const (
 	HelpViewMode
 )
 
-// StartUI periodically refreshes the screen using recent data
+// StartUI periodically refreshes the screen using recent data.
 func StartUI(
-	opts map[string]interface{},
+	engine *Engine,
 	statsCh chan *Stats,
 	shutdownCh chan struct{},
 ) {
@@ -229,7 +278,7 @@ func StartUI(
 	}
 
 	// Show empty values on first display
-	text := generateParagraph(opts, cleanStats)
+	text := generateParagraph(engine, cleanStats)
 	par := ui.NewPar(text)
 	par.Height = ui.TermHeight()
 	par.Width = ui.TermWidth()
@@ -266,7 +315,7 @@ func StartUI(
 			stats := <-statsCh
 
 			// Update top view text
-			text = generateParagraph(opts, stats)
+			text = generateParagraph(engine, stats)
 			par.Text = text
 
 			redraw <- struct{}{}
@@ -307,7 +356,7 @@ func StartUI(
 					sortOpt := gnatsd.SortOpt(optionBuf)
 					switch sortOpt {
 					case SortByCid, SortBySubs, SortByPending, SortByOutMsgs, SortByInMsgs, SortByOutBytes, SortByInBytes:
-						opts["sort"] = sortOpt
+						engine.SortOpt = sortOpt
 					default:
 						go func() {
 							// Has to be at least of the same length as sort by header
@@ -334,7 +383,7 @@ func StartUI(
 				} else {
 					optionBuf += string(e.Ch)
 				}
-				fmt.Printf("\033[1;1H\033[6;1Hsort by [%s]: %s", opts["sort"], optionBuf)
+				fmt.Printf("\033[1;1H\033[6;1Hsort by [%s]: %s", engine.SortOpt, optionBuf)
 			}
 
 			if waitingLimitOption {
@@ -344,7 +393,7 @@ func StartUI(
 					var n int
 					_, err := fmt.Sscanf(optionBuf, "%d", &n)
 					if err == nil {
-						opts["conns"] = n
+						engine.Conns = n
 					}
 
 					waitingLimitOption = false
@@ -360,7 +409,7 @@ func StartUI(
 				} else {
 					optionBuf += string(e.Ch)
 				}
-				fmt.Printf("\033[1;1H\033[6;1Hlimit   [%d]: %s", opts["conns"], optionBuf)
+				fmt.Printf("\033[1;1H\033[6;1Hlimit   [%d]: %s", engine.Conns, optionBuf)
 			}
 
 			if e.Type == ui.EventKey && (e.Ch == 'q' || e.Key == ui.KeyCtrlC) {
@@ -371,10 +420,10 @@ func StartUI(
 			if e.Type == ui.EventKey && e.Ch == 's' && !(waitingLimitOption || waitingSortOption) {
 				if displaySubscriptions {
 					displaySubscriptions = false
-					opts["subs"] = false
+					engine.DisplaySubs = false
 				} else {
 					displaySubscriptions = true
-					opts["subs"] = true
+					engine.DisplaySubs = true
 				}
 			}
 
@@ -385,12 +434,12 @@ func StartUI(
 			}
 
 			if e.Type == ui.EventKey && e.Ch == 'o' && !waitingLimitOption && viewMode == TopViewMode {
-				fmt.Printf("\033[1;1H\033[6;1Hsort by [%s]:", opts["sort"])
+				fmt.Printf("\033[1;1H\033[6;1Hsort by [%s]:", engine.SortOpt)
 				waitingSortOption = true
 			}
 
 			if e.Type == ui.EventKey && e.Ch == 'n' && !waitingSortOption && viewMode == TopViewMode {
-				fmt.Printf("\033[1;1H\033[6;1Hlimit   [%d]:", opts["conns"])
+				fmt.Printf("\033[1;1H\033[6;1Hlimit   [%d]:", engine.Conns)
 				waitingLimitOption = true
 			}
 

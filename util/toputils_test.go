@@ -29,16 +29,16 @@ func resetPreviousHTTPConnections() {
 }
 
 func TestFetchingStatz(t *testing.T) {
-	params := make(map[string]interface{})
-	params["host"] = "127.0.0.1"
-	params["port"] = server.DEFAULT_HTTP_PORT
+	engine := &Engine{}
+	engine.Uri = fmt.Sprintf("http://%s:%d", "127.0.0.1", server.DEFAULT_HTTP_PORT)
+	engine.HttpClient = &http.Client{}
 
 	s := runMonitorServer(server.DEFAULT_HTTP_PORT)
 	defer s.Shutdown()
 
 	// Getting Varz
 	var varz *server.Varz
-	result, err := Request("/varz", params)
+	result, err := engine.Request("/varz")
 	if err != nil {
 		t.Fatalf("Failed getting /varz: %v", err)
 	}
@@ -66,7 +66,7 @@ func TestFetchingStatz(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	var connz *server.Connz
-	result, err = Request("/connz", params)
+	result, err = engine.Request("/connz")
 	if err != nil {
 		t.Fatalf("Failed getting /connz: %v", err)
 	}
@@ -81,8 +81,8 @@ func TestFetchingStatz(t *testing.T) {
 		t.Fatalf("Could not monitor with subscriptions option. expected non-nil conns, got: %v", got)
 	}
 
-	params["subs"] = true
-	result, err = Request("/connz", params)
+	engine.DisplaySubs = true
+	result, err = engine.Request("/connz")
 	if err != nil {
 		t.Fatalf("Failed getting /connz: %v", err)
 	}
@@ -128,11 +128,10 @@ func TestPsize(t *testing.T) {
 }
 
 func TestMonitorStats(t *testing.T) {
-	params := make(map[string]interface{})
-	params["host"] = "127.0.0.1"
-	params["port"] = server.DEFAULT_HTTP_PORT
-	params["delay"] = 1
-
+	engine := &Engine{}
+	engine.Uri = fmt.Sprintf("http://%s:%d", "127.0.0.1", server.DEFAULT_HTTP_PORT)
+	engine.HttpClient = &http.Client{}
+	engine.Delay = 1
 	shutdownCh := make(chan struct{})
 	statsCh := make(chan *Stats)
 
@@ -140,7 +139,7 @@ func TestMonitorStats(t *testing.T) {
 	defer s.Shutdown()
 
 	go func() {
-		err := MonitorStats(params, statsCh, shutdownCh)
+		err := engine.MonitorStats(statsCh, shutdownCh)
 		if err != nil {
 			t.Fatalf("Could not start info monitoring loop. expected no error, got: %v", err)
 		}
