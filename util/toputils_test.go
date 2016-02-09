@@ -29,16 +29,15 @@ func resetPreviousHTTPConnections() {
 }
 
 func TestFetchingStatz(t *testing.T) {
-	params := make(map[string]interface{})
-	params["host"] = "127.0.0.1"
-	params["port"] = server.DEFAULT_HTTP_PORT
+	engine := &Engine{}
+	engine.Uri = fmt.Sprintf("http://%s:%d", "127.0.0.1", server.DEFAULT_HTTP_PORT)
+	engine.HttpClient = &http.Client{}
 
 	s := runMonitorServer(server.DEFAULT_HTTP_PORT)
 	defer s.Shutdown()
 
-	// Getting Varz
 	var varz *server.Varz
-	result, err := Request("/varz", params)
+	result, err := engine.Request("/varz")
 	if err != nil {
 		t.Fatalf("Failed getting /varz: %v", err)
 	}
@@ -66,7 +65,7 @@ func TestFetchingStatz(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	var connz *server.Connz
-	result, err = Request("/connz", params)
+	result, err = engine.Request("/connz")
 	if err != nil {
 		t.Fatalf("Failed getting /connz: %v", err)
 	}
@@ -81,8 +80,8 @@ func TestFetchingStatz(t *testing.T) {
 		t.Fatalf("Could not monitor with subscriptions option. expected non-nil conns, got: %v", got)
 	}
 
-	params["subs"] = true
-	result, err = Request("/connz", params)
+	engine.DisplaySubs = true
+	result, err = engine.Request("/connz")
 	if err != nil {
 		t.Fatalf("Failed getting /connz: %v", err)
 	}
@@ -128,31 +127,117 @@ func TestPsize(t *testing.T) {
 }
 
 func TestMonitorStats(t *testing.T) {
-	params := make(map[string]interface{})
-	params["host"] = "127.0.0.1"
-	params["port"] = server.DEFAULT_HTTP_PORT
-	params["delay"] = 1
-
-	shutdownCh := make(chan struct{})
-	statsCh := make(chan *Stats)
-
+	engine := NewEngine("127.0.0.1", server.DEFAULT_HTTP_PORT, 10, 1)
+	engine.SetupHTTP()
 	s := runMonitorServer(server.DEFAULT_HTTP_PORT)
 	defer s.Shutdown()
 
 	go func() {
-		err := MonitorStats(params, statsCh, shutdownCh)
+		err := engine.MonitorStats()
 		if err != nil {
 			t.Fatalf("Could not start info monitoring loop. expected no error, got: %v", err)
 		}
 	}()
+	defer close(engine.ShutdownCh)
 
 	select {
-	case stats := <-statsCh:
+	case stats := <-engine.StatsCh:
 		got := stats.Varz.Cores
 		if got < 1 {
 			t.Fatalf("Could not monitor number of cores. got: %v", got)
 		}
+		return
 	case <-time.After(3 * time.Second):
-		close(shutdownCh)
+		t.Fatalf("Timed out polling /varz via http")
+	}
+}
+
+func TestMonitoringTLSConnectionUsingRootCA(t *testing.T) {
+	srv, _ := gnatsd.RunServerWithConfig("./test/tls.conf")
+	defer srv.Shutdown()
+
+	engine := NewEngine("127.0.0.1", 8223, 10, 1)
+	err := engine.SetupHTTPS("./test/ca.pem", "", "", false)
+	if err != nil {
+		t.Fatalf("Expected to be able to configure polling via HTTPS. Got: %s", err)
+	}
+
+	go func() {
+		err := engine.MonitorStats()
+		if err != nil {
+			t.Fatalf("Could not start info monitoring loop. expected no error, got: %v", err)
+		}
+	}()
+	defer close(engine.ShutdownCh)
+
+	select {
+	case stats := <-engine.StatsCh:
+		got := stats.Varz.Cores
+		if got < 1 {
+			t.Fatalf("Could not monitor number of cores. got: %v", got)
+		}
+		return
+	case <-time.After(3 * time.Second):
+		t.Fatalf("Timed out polling /varz via https")
+	}
+}
+
+func TestMonitoringTLSConnectionUsingRootCAWithCerts(t *testing.T) {
+	srv, _ := gnatsd.RunServerWithConfig("./test/tls.conf")
+	defer srv.Shutdown()
+
+	engine := NewEngine("127.0.0.1", 8223, 10, 1)
+	err := engine.SetupHTTPS("./test/ca.pem", "./test/client-cert.pem", "./test/client-key.pem", false)
+	if err != nil {
+		t.Fatalf("Expected to be able to configure polling via HTTPS. Got: %s", err)
+	}
+
+	go func() {
+		err := engine.MonitorStats()
+		if err != nil {
+			t.Fatalf("Could not start info monitoring loop. expected no error, got: %v", err)
+		}
+	}()
+	defer close(engine.ShutdownCh)
+
+	select {
+	case stats := <-engine.StatsCh:
+		got := stats.Varz.Cores
+		if got < 1 {
+			t.Fatalf("Could not monitor number of cores. got: %v", got)
+		}
+		return
+	case <-time.After(3 * time.Second):
+		t.Fatalf("Timed out polling /varz via https")
+	}
+}
+
+func TestMonitoringTLSConnectionUsingCertsAndInsecure(t *testing.T) {
+	srv, _ := gnatsd.RunServerWithConfig("./test/tls.conf")
+	defer srv.Shutdown()
+
+	engine := NewEngine("127.0.0.1", 8223, 10, 1)
+	err := engine.SetupHTTPS("", "./test/client-cert.pem", "./test/client-key.pem", true)
+	if err != nil {
+		t.Fatalf("Expected to be able to configure polling via HTTPS. Got: %s", err)
+	}
+
+	go func() {
+		err := engine.MonitorStats()
+		if err != nil {
+			t.Fatalf("Could not start info monitoring loop. expected no error, got: %v", err)
+		}
+	}()
+	defer close(engine.ShutdownCh)
+
+	select {
+	case stats := <-engine.StatsCh:
+		got := stats.Varz.Cores
+		if got < 1 {
+			t.Fatalf("Could not monitor number of cores. got: %v", got)
+		}
+		return
+	case <-time.After(3 * time.Second):
+		t.Fatalf("Timed out polling /varz via https")
 	}
 }

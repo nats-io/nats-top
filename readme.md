@@ -2,23 +2,29 @@
 
 [![MIT License](http://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](https://github.com/nats-io/nats-top/blob/master/LICENSE)[![Build Status](https://travis-ci.org/nats-io/nats-top.svg?branch=master)](http://travis-ci.org/nats-io/nats-top)[![GitHub release](http://img.shields.io/github/release/nats-io/nats-top.svg?style=flat-square)](https://github.com/nats-io/nats-top/releases)
 
-`nats-top` is a `top`-like tool for monitoring gnatsd servers.
+`nats-top` is a `top`-like tool for monitoring NATS servers.
 
 ```sh
 $ nats-top
 
-gnatsd version 0.6.4 (uptime: 31m42s)
+NATS server version 0.7.3 (uptime: 3m34s)
 Server:
-  Load: CPU: 0.8%   Memory: 5.9M  Slow Consumers: 0
-  In:   Msgs: 34.2K  Bytes: 3.0M  Msgs/Sec: 37.9  Bytes/Sec: 3389.7
-  Out:  Msgs: 68.3K  Bytes: 6.0M  Msgs/Sec: 75.8  Bytes/Sec: 6779.4
+  Load: CPU:  58.3%  Memory: 8.6M  Slow Consumers: 0
+  In:   Msgs: 568.7K  Bytes: 1.7M  Msgs/Sec: 13129.0  Bytes/Sec: 38.5K
+  Out:  Msgs: 1.6M  Bytes: 4.7M  Msgs/Sec: 131290.9  Bytes/Sec: 384.6K    
 
-Connections: 4
-  HOST                 CID      SUBS    PENDING     MSGS_TO     MSGS_FROM   BYTES_TO    BYTES_FROM  LANG     VERSION SUBSCRIPTIONS
-  127.0.0.1:56134      2        5       0           11.6K       11.6K       1.1M        905.1K      go       1.1.0   foo, hello
-  127.0.1.1:56138      3        1       0           34.2K       0           3.0M        0           go       1.1.0    _INBOX.a96f3f6853616154d23d1b5072
-  127.0.0.1:56144      4        5       0           11.2K       11.1K       873.5K      1.1M        go       1.1.0   foo, hello
-  127.0.0.1:56151      5        8       0           11.4K       11.5K       1014.6K     1.0M        go       1.1.0   foo, hello
+Connections: 10
+  HOST                 CID    NAME        SUBS    PENDING     MSGS_TO   MSGS_FROM   BYTES_TO    BYTES_FROM  LANG     VERSION  UPTIME   LAST ACTIVITY
+  127.0.0.1:57487      13     example     1       12.0K       161.6K    0           484.7K      0           go       1.1.7    17s      2016-02-09 00:13:24.753062715 -0800 PST
+  127.0.0.1:57488      14     example     1       11.9K       161.6K    0           484.7K      0           go       1.1.7    17s      2016-02-09 00:13:24.753040168 -0800 PST
+  127.0.0.1:57489      15     example     1       12.1K       161.6K    0           484.7K      0           go       1.1.7    17s      2016-02-09 00:13:24.753069442 -0800 PST
+  127.0.0.1:57490      16     example     1       12.0K       161.6K    0           484.7K      0           go       1.1.7    17s      2016-02-09 00:13:24.753057413 -0800 PST
+  127.0.0.1:57491      17     example     1       12.1K       161.6K    0           484.7K      0           go       1.1.7    17s      2016-02-09 00:13:24.75307264 -0800 PST 
+  127.0.0.1:57492      18     example     1       12.1K       161.6K    0           484.7K      0           go       1.1.7    17s      2016-02-09 00:13:24.753066213 -0800 PST
+  127.0.0.1:57493      19     example     1       12.0K       161.6K    0           484.7K      0           go       1.1.7    17s      2016-02-09 00:13:24.753075802 -0800 PST
+  127.0.0.1:57494      20     example     1       12.2K       161.6K    0           484.7K      0           go       1.1.7    17s      2016-02-09 00:13:24.753052178 -0800 PST
+  127.0.0.1:57495      21     example     1       12.1K       161.6K    0           484.7K      0           go       1.1.7    17s      2016-02-09 00:13:24.753048615 -0800 PST
+  127.0.0.1:57496      22     example     1       12.0K       161.6K    0           484.7K      0           go       1.1.7    17s      2016-02-09 00:13:24.753016783 -0800 PST
 ```
 
 ## Install
@@ -32,12 +38,13 @@ go get github.com/nats-io/nats-top
 ## Usage
 
 ```
-nats-top [-s server] [-m monitor] [-n num_connections] [-d delay_in_secs] [-sort by]
+usage: nats-top [-s server] [-m http_port] [-ms https_port] [-n num_connections] [-d delay_secs] [-sort by]
+                [-cert FILE] [-key FILE ][-cacert FILE] [-k]
 ```
 
-- `-m monitor`
+- `-m http_port`, `-ms https_port`
 
-  Monitoring http port from gnatsd.
+  Monitoring http and https ports from the NATS server.
 
 - `-n num_connections`
 
@@ -51,6 +58,14 @@ nats-top [-s server] [-m monitor] [-n num_connections] [-d delay_in_secs] [-sort
 
   Field to use for sorting the connections.
 
+- `-cert`, `-key`, `-cacert`
+
+  Client certificate, key and RootCA for monitoring via https.
+
+- `-k`
+
+  Configure to skip verification of certificate.
+
 ## Commands
 
 While in top view, it is possible to use the following commands:
@@ -59,7 +74,7 @@ While in top view, it is possible to use the following commands:
 
   Set primary sort key to **[option]**:
 
-  Keyname may be one of: **{cid, subs, msgs_to, msgs_from, bytes_to, bytes_from}**
+  Keyname may be one of: **{cid, subs, msgs_to, msgs_from, bytes_to, bytes_from, idle, last}**
 
   This can be set in the command line too, e.g. `nats-top -sort bytes_to`
 
@@ -83,3 +98,7 @@ While in top view, it is possible to use the following commands:
 - **q**
 
   Quit nats-top.
+
+## Demo
+
+![nats-top](https://cloud.githubusercontent.com/assets/26195/12911060/901419e0-cec4-11e5-8384-e222a891e6bf.gif)

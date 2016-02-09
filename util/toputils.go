@@ -1,6 +1,8 @@
 package toputils
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -12,28 +14,50 @@ import (
 
 const DisplaySubscriptions = 1
 
+type Engine struct {
+	Host        string
+	Port        int
+	HttpClient  *http.Client
+	Uri         string
+	Conns       int
+	SortOpt     gnatsd.SortOpt
+	Delay       int
+	DisplaySubs bool
+	StatsCh     chan *Stats
+	ShutdownCh  chan struct{}
+}
+
+func NewEngine(host string, port int, conns int, delay int) *Engine {
+	return &Engine{
+		Host:       host,
+		Port:       port,
+		Conns:      conns,
+		Delay:      delay,
+		StatsCh:    make(chan *Stats),
+		ShutdownCh: make(chan struct{}),
+	}
+}
+
 // Request takes a path and options, and returns a Stats struct
 // with with either connz or varz
-func Request(path string, opts map[string]interface{}) (interface{}, error) {
+func (engine *Engine) Request(path string) (interface{}, error) {
 	var statz interface{}
-	uri := fmt.Sprintf("http://%s:%d%s", opts["host"], opts["port"], path)
 
+	uri := engine.Uri + path
 	switch path {
 	case "/varz":
 		statz = &gnatsd.Varz{}
 	case "/connz":
 		statz = &gnatsd.Connz{}
-		uri += fmt.Sprintf("?limit=%d&sort=%s", opts["conns"], opts["sort"])
-		if displaySubs, ok := opts["subs"]; ok {
-			if displaySubs.(bool) {
-				uri += fmt.Sprintf("&subs=%d", DisplaySubscriptions)
-			}
+		uri += fmt.Sprintf("?limit=%d&sort=%s", engine.Conns, engine.SortOpt)
+		if engine.DisplaySubs {
+			uri += fmt.Sprintf("&subs=%d", DisplaySubscriptions)
 		}
 	default:
 		return nil, fmt.Errorf("invalid path '%s' for stats server", path)
 	}
 
-	resp, err := http.Get(uri)
+	resp, err := engine.HttpClient.Get(uri)
 	if resp != nil {
 		defer resp.Body.Close()
 	}
@@ -54,30 +78,9 @@ func Request(path string, opts map[string]interface{}) (interface{}, error) {
 	return statz, nil
 }
 
-// Psize takes a float and returns a human readable string.
-func Psize(s int64) string {
-	size := float64(s)
-
-	if size < 1024 {
-		return fmt.Sprintf("%.0f", size)
-	} else if size < (1024 * 1024) {
-		return fmt.Sprintf("%.1fK", size/1024)
-	} else if size < (1024 * 1024 * 1024) {
-		return fmt.Sprintf("%.1fM", size/1024/1024)
-	} else if size >= (1024 * 1024 * 1024) {
-		return fmt.Sprintf("%.1fG", size/1024/1024/1024)
-	} else {
-		return "NA"
-	}
-}
-
 // MonitorStats is ran as a goroutine and takes options
 // which can modify how poll values then sends to channel.
-func MonitorStats(
-	opts map[string]interface{},
-	statsCh chan *Stats,
-	shutdownCh chan struct{},
-) error {
+func (engine *Engine) MonitorStats() error {
 	var pollTime time.Time
 
 	var inMsgsDelta int64
@@ -98,12 +101,7 @@ func MonitorStats(
 	first := true
 	pollTime = time.Now()
 
-	var delay time.Duration
-	if val, ok := opts["delay"].(int); ok {
-		delay = time.Duration(val) * time.Second
-	} else {
-		return fmt.Errorf("error: could not use %s as a refreshing interval", opts["delay"])
-	}
+	delay := time.Duration(engine.Delay) * time.Second
 
 	// Wrap collected info in a Stats struct
 	stats := &Stats{
@@ -114,12 +112,12 @@ func MonitorStats(
 
 	for {
 		select {
-		case <-shutdownCh:
+		case <-engine.ShutdownCh:
 			return nil
 		case <-time.After(delay):
 			// Get /varz
 			{
-				result, err := Request("/varz", opts)
+				result, err := engine.Request("/varz")
 				if err == nil {
 					if varz, ok := result.(*gnatsd.Varz); ok {
 						stats.Varz = varz
@@ -129,7 +127,7 @@ func MonitorStats(
 
 			// Get /connz
 			{
-				result, err := Request("/connz", opts)
+				result, err := engine.Request("/connz")
 				if err == nil {
 					if connz, ok := result.(*gnatsd.Connz); ok {
 						stats.Connz = connz
@@ -174,7 +172,80 @@ func MonitorStats(
 				OutBytesRate: outBytesRate,
 			}
 
-			statsCh <- stats
+			engine.StatsCh <- stats
 		}
+	}
+}
+
+// SetupHTTPS sets up the http client and uri to use for polling.
+func (engine *Engine) SetupHTTPS(caCertOpt, certOpt, keyOpt string, skipVerifyOpt bool) error {
+	tlsConfig := &tls.Config{}
+	if caCertOpt != "" {
+		caCert, err := ioutil.ReadFile(caCertOpt)
+		if err != nil {
+			return err
+		}
+		caCertPool := x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM(caCert)
+		tlsConfig.RootCAs = caCertPool
+	}
+
+	if certOpt != "" && keyOpt != "" {
+		cert, err := tls.LoadX509KeyPair(certOpt, keyOpt)
+		if err != nil {
+			return err
+		}
+		tlsConfig.Certificates = []tls.Certificate{cert}
+	}
+
+	if skipVerifyOpt {
+		tlsConfig.InsecureSkipVerify = true
+	}
+
+	transport := &http.Transport{TLSClientConfig: tlsConfig}
+	engine.HttpClient = &http.Client{Transport: transport}
+	engine.Uri = fmt.Sprintf("https://%s:%d", engine.Host, engine.Port)
+
+	return nil
+}
+
+// SetupHTTP sets up the http client and uri to use for polling.
+func (engine *Engine) SetupHTTP() {
+	engine.HttpClient = &http.Client{}
+	engine.Uri = fmt.Sprintf("http://%s:%d", engine.Host, engine.Port)
+
+	return
+}
+
+// Stats represents the monitored data from a NATS server.
+type Stats struct {
+	Varz  *gnatsd.Varz
+	Connz *gnatsd.Connz
+	Rates *Rates
+}
+
+// Rates represents the tracked in/out msgs and bytes flow
+// from a NATS server.
+type Rates struct {
+	InMsgsRate   float64
+	OutMsgsRate  float64
+	InBytesRate  float64
+	OutBytesRate float64
+}
+
+// Psize takes a float and returns a human readable string.
+func Psize(s int64) string {
+	size := float64(s)
+
+	if size < 1024 {
+		return fmt.Sprintf("%.0f", size)
+	} else if size < (1024 * 1024) {
+		return fmt.Sprintf("%.1fK", size/1024)
+	} else if size < (1024 * 1024 * 1024) {
+		return fmt.Sprintf("%.1fM", size/1024/1024)
+	} else if size >= (1024 * 1024 * 1024) {
+		return fmt.Sprintf("%.1fG", size/1024/1024/1024)
+	} else {
+		return "NA"
 	}
 }
