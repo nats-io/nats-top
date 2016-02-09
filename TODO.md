@@ -3,9 +3,9 @@
 - [X] top like sort and limit
 - [X] Toggle for displaying subscriptions info per conn
 - [X] Add name column
-- [ ] Add sorting by uptime,last activity
-- [ ] Support https polling
-- [ ] Include /routesz info
-- [ ] Enable prepend '+/-' for asc/desc sorting
-- [ ] Upgrade gizak framework
+- [X] Add sorting by uptime,last activity
+- [X] Support https polling
 - [ ] Align host and add padding depending on length
+- [ ] Enable prepend '+/-' for asc/desc sorting
+- [ ] Include /routez info
+- [ ] Upgrade gizak framework
