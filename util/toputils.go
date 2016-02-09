@@ -1,6 +1,8 @@
 package toputils
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -13,12 +15,27 @@ import (
 const DisplaySubscriptions = 1
 
 type Engine struct {
+	Host        string
+	Port        int
 	HttpClient  *http.Client
 	Uri         string
 	Conns       int
 	SortOpt     gnatsd.SortOpt
 	Delay       int
 	DisplaySubs bool
+	StatsCh     chan *Stats
+	ShutdownCh  chan struct{}
+}
+
+func NewEngine(host string, port int, conns int, delay int) *Engine {
+	return &Engine{
+		Host:       host,
+		Port:       port,
+		Conns:      conns,
+		Delay:      delay,
+		StatsCh:    make(chan *Stats),
+		ShutdownCh: make(chan struct{}),
+	}
 }
 
 // Request takes a path and options, and returns a Stats struct
@@ -63,10 +80,7 @@ func (engine *Engine) Request(path string) (interface{}, error) {
 
 // MonitorStats is ran as a goroutine and takes options
 // which can modify how poll values then sends to channel.
-func (engine *Engine) MonitorStats(
-	statsCh chan *Stats,
-	shutdownCh chan struct{},
-) error {
+func (engine *Engine) MonitorStats() error {
 	var pollTime time.Time
 
 	var inMsgsDelta int64
@@ -98,7 +112,7 @@ func (engine *Engine) MonitorStats(
 
 	for {
 		select {
-		case <-shutdownCh:
+		case <-engine.ShutdownCh:
 			return nil
 		case <-time.After(delay):
 			// Get /varz
@@ -158,9 +172,65 @@ func (engine *Engine) MonitorStats(
 				OutBytesRate: outBytesRate,
 			}
 
-			statsCh <- stats
+			engine.StatsCh <- stats
 		}
 	}
+}
+
+// SetupHTTPS sets up the http client and uri to use for polling.
+func (engine *Engine) SetupHTTPS(caCertOpt, certOpt, keyOpt string, skipVerifyOpt bool) error {
+	tlsConfig := &tls.Config{}
+	if caCertOpt != "" {
+		caCert, err := ioutil.ReadFile(caCertOpt)
+		if err != nil {
+			return err
+		}
+		caCertPool := x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM(caCert)
+		tlsConfig.RootCAs = caCertPool
+	}
+
+	if certOpt != "" && keyOpt != "" {
+		cert, err := tls.LoadX509KeyPair(certOpt, keyOpt)
+		if err != nil {
+			return err
+		}
+		tlsConfig.Certificates = []tls.Certificate{cert}
+	}
+
+	if skipVerifyOpt {
+		tlsConfig.InsecureSkipVerify = true
+	}
+
+	transport := &http.Transport{TLSClientConfig: tlsConfig}
+	engine.HttpClient = &http.Client{Transport: transport}
+	engine.Uri = fmt.Sprintf("https://%s:%d", engine.Host, engine.Port)
+
+	return nil
+}
+
+// SetupHTTP sets up the http client and uri to use for polling.
+func (engine *Engine) SetupHTTP() {
+	engine.HttpClient = &http.Client{}
+	engine.Uri = fmt.Sprintf("http://%s:%d", engine.Host, engine.Port)
+
+	return
+}
+
+// Stats represents the monitored data from a NATS server.
+type Stats struct {
+	Varz  *gnatsd.Varz
+	Connz *gnatsd.Connz
+	Rates *Rates
+}
+
+// Rates represents the tracked in/out msgs and bytes flow
+// from a NATS server.
+type Rates struct {
+	InMsgsRate   float64
+	OutMsgsRate  float64
+	InBytesRate  float64
+	OutBytesRate float64
 }
 
 // Psize takes a float and returns a human readable string.

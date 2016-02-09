@@ -139,7 +139,7 @@ func TestMonitorStats(t *testing.T) {
 	defer s.Shutdown()
 
 	go func() {
-		err := engine.MonitorStats(statsCh, shutdownCh)
+		err := engine.MonitorStats()
 		if err != nil {
 			t.Fatalf("Could not start info monitoring loop. expected no error, got: %v", err)
 		}
