@@ -35,6 +35,7 @@ var (
 var usageHelp = `
 usage: nats-top [-s server] [-m http_port] [-ms https_port] [-n num_connections] [-d delay_secs] [-sort by]
                 [-cert FILE] [-key FILE ][-cacert FILE] [-k]
+
 `
 
 func usage() {
@@ -61,7 +62,7 @@ func main() {
 		engine = top.NewEngine(*host, *httpsPort, *conns, *delay)
 		err := engine.SetupHTTPS(*caCertOpt, *certOpt, *keyOpt, *skipVerifyOpt)
 		if err != nil {
-			log.Fatalf("Error: %s", err)
+			log.Printf("nats-top: %s", err)
 			usage()
 		}
 	} else {
@@ -70,22 +71,20 @@ func main() {
 	}
 
 	if engine.Host == "" {
-		log.Fatalf("Please specify the monitoring endpoint for NATS.\n")
+		log.Printf("nats-top: invalid monitoring endpoint")
 		usage()
 	}
 
 	if engine.Port == 0 {
-		log.Fatalf("Please specify the monitoring port for NATS.\n")
+		log.Printf("nats-top: invalid monitoring port")
 		usage()
 	}
 
 	// Smoke test to abort in case can't connect to server since the beginning.
-	{
-		_, err := engine.Request("/varz")
-		if err != nil {
-			log.Fatalf("nats-top: %s", err)
-			usage()
-		}
+	_, err := engine.Request("/varz")
+	if err != nil {
+		log.Printf("nats-top: %s", err)
+		usage()
 	}
 
 	sortOpt := gnatsd.SortOpt(*sortBy)
@@ -95,7 +94,7 @@ func main() {
 	}
 	engine.SortOpt = sortOpt
 
-	err := ui.Init()
+	err = ui.Init()
 	if err != nil {
 		panic(err)
 	}
@@ -157,7 +156,7 @@ func generateParagraph(
 	inBytesRate := top.Psize(int64(stats.Rates.InBytesRate))
 	outBytesRate := top.Psize(int64(stats.Rates.OutBytesRate))
 
-	info := "gnatsd version %s (uptime: %s)"
+	info := "NATS server version %s (uptime: %s)"
 	info += "\nServer:\n  Load: CPU:  %.1f%%  Memory: %s  Slow Consumers: %d\n"
 	info += "  In:   Msgs: %s  Bytes: %s  Msgs/Sec: %.1f  Bytes/Sec: %s\n"
 	info += "  Out:  Msgs: %s  Bytes: %s  Msgs/Sec: %.1f  Bytes/Sec: %s"
