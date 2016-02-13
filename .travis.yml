@@ -1,14 +1,15 @@
 language: go
+
 go:
-- 1.4
+  - 1.5.3
 
 install:
-- DST=~/gopath/src/github.com/nats-io
-- mkdir -p "$DST"
-- git clone --depth=1 --quiet https://github.com/nats-io/gnatsd.git "$DST"/gnatsd
-- go get golang.org/x/tools/cmd/vet
-- go get gopkg.in/gizak/termui.v1
-- go get golang.org/x/crypto/bcrypt
+  - DST=~/gopath/src/github.com/nats-io
+  - mkdir -p "$DST"
+  - git clone --depth=1 --quiet https://github.com/nats-io/gnatsd.git "$DST"/gnatsd
+  - go get golang.org/x/tools/cmd/vet
+  - go get gopkg.in/gizak/termui.v1
+  - go get golang.org/x/crypto/bcrypt
 
 script:
   - go get -d -v ./...
@@ -17,3 +18,6 @@ script:
   - go vet ./...
   - go test -i -race ./...
   - GOMAXPROCS=1 go test -v -race ./...
+
+after_script:
+  - if [ "$TRAVIS_GO_VERSION" = "1.5" ] && [ "$BUILD_GOOS" = "linux" ] && [ "$TRAVIS_TAG" != "" ]; then ./scripts/cross_compile.sh; ghr --username wallyqs --token $GITHUB_TOKEN --replace $TRAVIS_TAG pkg/; fi  
