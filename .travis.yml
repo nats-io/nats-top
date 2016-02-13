@@ -20,4 +20,4 @@ script:
   - GOMAXPROCS=1 go test -v -race ./...
 
 after_script:
-  - if [ "$TRAVIS_GO_VERSION" = "1.5" ] && [ "$BUILD_GOOS" = "linux" ] && [ "$TRAVIS_TAG" != "" ]; then ./scripts/cross_compile.sh; ghr --username wallyqs --token $GITHUB_TOKEN --replace $TRAVIS_TAG pkg/; fi  
+  - if [ "$TRAVIS_GO_VERSION" = "1.5.3" ] && [ "$BUILD_GOOS" = "linux" ] && [ "$TRAVIS_TAG" != "" ]; then ./scripts/cross_compile.sh; ghr --username wallyqs --token $GITHUB_TOKEN --replace $TRAVIS_TAG pkg/; fi  
