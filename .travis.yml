@@ -2,6 +2,15 @@ language: go
 
 go:
   - 1.5
+  - tip
+
+env:
+  global:
+    - BUILD_GOARCH=amd64
+  matrix:
+    - BUILD_GOOS=linux
+    - BUILD_GOOS=darwin
+    - BUILD_GOOS=windows
 
 install:
   - DST=~/gopath/src/github.com/nats-io
@@ -19,4 +28,4 @@ script:
   - go test -i -race ./...
 
 after_script:
-  - if [ "$TRAVIS_GO_VERSION" = "1.5" ] && [ "$BUILD_GOOS" = "linux" ] && [ "$TRAVIS_TAG" != "" ]; then ./scripts/cross_compile.sh; ghr --username wallyqs --token $GITHUB_TOKEN --replace $TRAVIS_TAG pkg/; fi  
+  - if [ "$TRAVIS_GO_VERSION" = "1.5" ] && [ "$BUILD_GOOS" = "linux" ] && [ "$TRAVIS_TAG" != "" ]; then ./scripts/cross_compile.sh; ghr --username wallyqs --token $GITHUB_TOKEN --replace $TRAVIS_TAG pkg/; fi
