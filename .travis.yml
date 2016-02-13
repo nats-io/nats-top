@@ -26,4 +26,7 @@ script:
   - go test -i -race ./...
 
 after_script:
+  - echo $BUILD_GOOS
+  - echo $TRAVIS_GO_VERSION
+  - echo $TRAVIS_TAG
   - ./scripts/cross_compile.sh; ghr --username wallyqs --token $GITHUB_TOKEN --replace $TRAVIS_TAG pkg/;

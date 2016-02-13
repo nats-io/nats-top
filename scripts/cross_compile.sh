@@ -7,9 +7,9 @@ export OSARCH="linux/amd64 darwin/amd64 linux/arm windows/amd64"
 export DIRS="linux_amd64 darwin_amd64 linux_arm windows_amd64"
 export OUTDIR="pkg"
 
-rm ../gnatsd/server/pse_*.go
-cat <<HERE > ../gnatsd/server/pse.go
-// Copyright 2015 Apcera Inc. All rights reserved.
+rm $HOME/gopath/src/github.com/nats-io/gnatsd/server/pse_*.go
+cat <<HERE > $HOME/gopath/src/github.com/nats-io/gnatsd/server/pse.go
+// Copyright 2016 Apcera Inc. All rights reserved.
 
 package server
 
