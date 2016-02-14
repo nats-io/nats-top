@@ -32,4 +32,4 @@ for dir in $DIRS; do \
 done
 
 pwd
-ls -R .
+ls -laR .

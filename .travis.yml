@@ -23,7 +23,7 @@ script:
   - go vet ./...
   - go test -i -race ./...
 
-after_script:
+after_success:
   - echo $BUILD_GOOS
   - echo $TRAVIS_GO_VERSION
   - echo $TRAVIS_TAG
