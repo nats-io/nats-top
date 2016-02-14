@@ -30,3 +30,6 @@ for dir in $DIRS; do \
 	(cd $OUTDIR && zip -q $APPNAME-$dir.zip -r $APPNAME-$dir) ;\
 	echo "make $OUTDIR/$APPNAME-$dir.zip" ;\
 done
+
+pwd
+ls -R .
