@@ -162,12 +162,12 @@ func generateParagraph(
 	inBytesRate := top.Psize(int64(stats.Rates.InBytesRate))
 	outBytesRate := top.Psize(int64(stats.Rates.OutBytesRate))
 
-	info := "NATS server version %s (uptime: %s)"
+	info := "NATS server version %s (uptime: %s) %s"
 	info += "\nServer:\n  Load: CPU:  %.1f%%  Memory: %s  Slow Consumers: %d\n"
 	info += "  In:   Msgs: %s  Bytes: %s  Msgs/Sec: %.1f  Bytes/Sec: %s\n"
 	info += "  Out:  Msgs: %s  Bytes: %s  Msgs/Sec: %.1f  Bytes/Sec: %s"
 
-	text := fmt.Sprintf(info, serverVersion, uptime,
+	text := fmt.Sprintf(info, serverVersion, uptime, stats.Error,
 		cpu, mem, slowConsumers,
 		inMsgs, inBytes, inMsgsRate, inBytesRate,
 		outMsgs, outBytes, outMsgsRate, outBytesRate)
@@ -231,6 +231,7 @@ func StartUI(engine *top.Engine) {
 		Varz:  &gnatsd.Varz{},
 		Connz: &gnatsd.Connz{},
 		Rates: &top.Rates{},
+		Error: fmt.Errorf(""),
 	}
 
 	// Show empty values on first display
@@ -268,7 +269,8 @@ func StartUI(engine *top.Engine) {
 
 	update := func() {
 		for {
-			stats := <-engine.StatsCh
+			receivedStats := <-engine.StatsCh
+			stats := receivedStats
 
 			// Update top view text
 			text = generateParagraph(engine, stats)
