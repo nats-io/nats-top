@@ -31,6 +31,3 @@ for dir in $DIRS; do \
 	echo "created '$OUTDIR/$APPNAME-$dir.zip', cleaning up..." ;\
 	rm -rf $APPNAME-$dir;\
 done
-
-pwd
-ls -laR .
