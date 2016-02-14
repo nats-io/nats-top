@@ -5,7 +5,7 @@
 - [X] Add name column
 - [X] Add sorting by uptime,last activity
 - [X] Support https polling
-- [ ] Align host and add padding depending on length
+- [ ] Align host and add padding depending on length (padding)
 - [ ] Enable prepend '+/-' for asc/desc sorting
 - [ ] Include /routez info
 - [ ] Upgrade gizak framework
