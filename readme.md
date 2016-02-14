@@ -35,6 +35,8 @@ Can be installed via `go get`:
 go get github.com/nats-io/nats-top
 ```
 
+and releases of the binary are also [available](https://github.com/nats-io/nats-top/releases)
+
 ## Usage
 
 ```
