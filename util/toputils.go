@@ -103,14 +103,14 @@ func (engine *Engine) MonitorStats() error {
 
 	delay := time.Duration(engine.Delay) * time.Second
 
-	// Wrap collected info in a Stats struct
-	stats := &Stats{
-		Varz:  &gnatsd.Varz{},
-		Connz: &gnatsd.Connz{},
-		Rates: &Rates{},
-	}
-
 	for {
+		stats := &Stats{
+			Varz:  &gnatsd.Varz{},
+			Connz: &gnatsd.Connz{},
+			Rates: &Rates{},
+			Error: fmt.Errorf(""),
+		}
+
 		select {
 		case <-engine.ShutdownCh:
 			return nil
@@ -118,20 +118,26 @@ func (engine *Engine) MonitorStats() error {
 			// Get /varz
 			{
 				result, err := engine.Request("/varz")
-				if err == nil {
-					if varz, ok := result.(*gnatsd.Varz); ok {
-						stats.Varz = varz
-					}
+				if err != nil {
+					stats.Error = err
+					engine.StatsCh <- stats
+					continue
+				}
+				if varz, ok := result.(*gnatsd.Varz); ok {
+					stats.Varz = varz
 				}
 			}
 
 			// Get /connz
 			{
 				result, err := engine.Request("/connz")
-				if err == nil {
-					if connz, ok := result.(*gnatsd.Connz); ok {
-						stats.Connz = connz
-					}
+				if err != nil {
+					stats.Error = err
+					engine.StatsCh <- stats
+					continue
+				}
+				if connz, ok := result.(*gnatsd.Connz); ok {
+					stats.Connz = connz
 				}
 			}
 
@@ -222,6 +228,7 @@ type Stats struct {
 	Varz  *gnatsd.Varz
 	Connz *gnatsd.Connz
 	Rates *Rates
+	Error error
 }
 
 // Rates represents the tracked in/out msgs and bytes flow
