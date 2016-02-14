@@ -29,4 +29,4 @@ after_script:
   - echo $BUILD_GOOS
   - echo $TRAVIS_GO_VERSION
   - echo $TRAVIS_TAG
-  - if [ "$TRAVIS_GO_VERSION" = "1.5" ] && [ "$BUILD_GOOS" = "linux" ] && [ "$TRAVIS_TAG" != "" ]; then ./scripts/cross_compile.sh; ghr --username wallyqs --token $GITHUB_TOKEN --replace $TRAVIS_TAG pkg/ ; fi
+  - if [ "$TRAVIS_GO_VERSION" = "1.5" ] && [ "$BUILD_GOOS" = "linux" ] && [ "$TRAVIS_TAG" != "" ]; then ./scripts/cross_compile.sh; ghr --username wallyqs --token $GITHUB_TOKEN --prerelease --debug pre-release --replace $TRAVIS_TAG pkg/ ; fi
