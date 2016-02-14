@@ -9,6 +9,8 @@ env:
     - BUILD_GOARCH=amd64
   matrix:
     - BUILD_GOOS=linux
+    - BUILD_GOOS=darwin
+    - BUILD_GOOS=windows
 
 install:
   - go get github.com/nats-io/gnatsd
@@ -24,7 +26,4 @@ script:
   - go test -i -race ./...
 
 after_success:
-  - echo $BUILD_GOOS
-  - echo $TRAVIS_GO_VERSION
-  - echo $TRAVIS_TAG
   - if [ "$TRAVIS_GO_VERSION" = "1.5" ] && [ "$BUILD_GOOS" = "linux" ] && [ "$TRAVIS_TAG" != "" ]; then ./scripts/cross_compile.sh; ghr --username wallyqs --token $GITHUB_TOKEN --replace --prerelease --debug $TRAVIS_TAG pkg/ ; fi
