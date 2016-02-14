@@ -32,11 +32,17 @@ var (
 	skipVerifyOpt = flag.Bool("k", false, "Skip verifying server certificate")
 )
 
-var usageHelp = `
+var (
+	defaultHeader       = []interface{}{"HOST", "CID", "NAME", "SUBS", "PENDING", "MSGS_TO", "MSGS_FROM", "BYTES_TO", "BYTES_FROM", "LANG", "VERSION", "UPTIME", "LAST ACTIVITY"}
+	defaultHeaderFormat = "  %-20s %-8s %-15s %-6s  %-10s  %-10s  %-10s  %-10s  %-10s  %-7s  %-7s  %-7s  %-40s"
+	defaultRowFormat    = "  %-20s %-8d %-15s %-6d  %-10s  %-10s  %-10s  %-10s  %-10s  %-7s  %-7s  %-7s  %-40s"
+
+	usageHelp = `
 usage: nats-top [-s server] [-m http_port] [-ms https_port] [-n num_connections] [-d delay_secs] [-sort by]
                 [-cert FILE] [-key FILE ][-cacert FILE] [-k]
 
 `
+)
 
 func usage() {
 	log.Fatalf(usageHelp)
@@ -168,26 +174,23 @@ func generateParagraph(
 	text += fmt.Sprintf("\n\nConnections: %d\n", numConns)
 	displaySubs := engine.DisplaySubs
 
-	connHeader := "  %-20s %-8s %-15s %-6s  %-10s  %-10s  %-10s  %-10s  %-10s  %-7s  %-7s  %-7s  %-40s"
+	// TODO: Dynamic padding for columns
+	connHeader := defaultHeaderFormat
 	if displaySubs {
 		connHeader += "%13s"
 	}
 	connHeader += "\n"
 
 	var connRows string
-	var connValues string
 	if displaySubs {
-		connRows = fmt.Sprintf(connHeader, "HOST", "CID", "NAME", "SUBS", "PENDING",
-			"MSGS_TO", "MSGS_FROM", "BYTES_TO", "BYTES_FROM",
-			"LANG", "VERSION", "UPTIME", "LAST ACTIVITY", "SUBSCRIPTIONS")
+		subsHeader := append(defaultHeader, "SUBSCRIPTIONS")
+		connRows = fmt.Sprintf(connHeader, subsHeader...)
 	} else {
-		connRows = fmt.Sprintf(connHeader, "HOST", "CID", "NAME", "SUBS", "PENDING",
-			"MSGS_TO", "MSGS_FROM", "BYTES_TO", "BYTES_FROM",
-			"LANG", "VERSION", "UPTIME", "LAST ACTIVITY")
+		connRows = fmt.Sprintf(connHeader, defaultHeader...)
 	}
 	text += connRows
 
-	connValues = "  %-20s %-8d %-15s %-6d  %-10s  %-10s  %-10s  %-10s  %-10s  %-7s  %-7s  %-7s  %-40s"
+	connValues := defaultRowFormat
 	if displaySubs {
 		connValues += "%s"
 	}
@@ -197,15 +200,15 @@ func generateParagraph(
 		host := fmt.Sprintf("%s:%d", conn.IP, conn.Port)
 
 		var connLine string
+		connLineInfo := []interface{}{host, conn.Cid, conn.Name, conn.NumSubs, top.Psize(int64(conn.Pending)),
+			top.Psize(conn.OutMsgs), top.Psize(conn.InMsgs), top.Psize(conn.OutBytes), top.Psize(conn.InBytes),
+			conn.Lang, conn.Version, conn.Uptime, conn.LastActivity}
 		if displaySubs {
 			subs := strings.Join(conn.Subs, ", ")
-			connLine = fmt.Sprintf(connValues, host, conn.Cid, conn.Name, conn.NumSubs, top.Psize(int64(conn.Pending)),
-				top.Psize(conn.OutMsgs), top.Psize(conn.InMsgs), top.Psize(conn.OutBytes), top.Psize(conn.InBytes),
-				conn.Lang, conn.Version, conn.Uptime, conn.LastActivity, subs)
+			connLineInfo = append(connLineInfo, subs)
+			connLine = fmt.Sprintf(connValues, connLineInfo...)
 		} else {
-			connLine = fmt.Sprintf(connValues, host, conn.Cid, conn.Name, conn.NumSubs, top.Psize(int64(conn.Pending)),
-				top.Psize(conn.OutMsgs), top.Psize(conn.InMsgs), top.Psize(conn.OutBytes), top.Psize(conn.InBytes),
-				conn.Lang, conn.Version, conn.Uptime, conn.LastActivity)
+			connLine = fmt.Sprintf(connValues, connLineInfo...)
 		}
 
 		text += connLine
