@@ -165,7 +165,7 @@ func generateParagraph(
 		cpu, mem, slowConsumers,
 		inMsgs, inBytes, inMsgsRate, inBytesRate,
 		outMsgs, outBytes, outMsgsRate, outBytesRate)
-	text += fmt.Sprintf("\n\nConnections: %d\n", numConns)
+	text += fmt.Sprintf("\n\nConnections Polled: %d\n", numConns)
 	displaySubs := engine.DisplaySubs
 
 	connHeader := "  %-20s %-8s %-15s %-6s  %-10s  %-10s  %-10s  %-10s  %-10s  %-7s  %-7s  %-7s  %-40s"
