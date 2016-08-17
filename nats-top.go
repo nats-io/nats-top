@@ -14,7 +14,7 @@ import (
 	ui "gopkg.in/gizak/termui.v1"
 )
 
-const version = "0.2.0"
+const version = "0.3.0"
 
 var (
 	host        = flag.String("s", "127.0.0.1", "The nats server host.")
