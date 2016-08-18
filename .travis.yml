@@ -1,7 +1,8 @@
 language: go
 
 go:
-  - 1.6
+  - 1.6.3
+  - 1.7
   - tip
 
 env:
@@ -9,19 +10,12 @@ env:
     - BUILD_GOARCH=amd64
   matrix:
     - BUILD_GOOS=linux
-
-install:
-  - go get github.com/nats-io/gnatsd
-  - go get gopkg.in/gizak/termui.v1
-  - go get golang.org/x/crypto/bcrypt
+  allow_failures:
+    - go: tip
 
 script:
-  - go get -d -v ./...
-  - go build -v ./...
   - go fmt ./...
-  - go vet ./...
-  - go test -i -race ./...
-  - go test -v -race ./...
+  - go test -v -race ./util/
 
 after_success:
-  - if [ "$TRAVIS_GO_VERSION" = "1.5" ] && [ "$BUILD_GOOS" = "linux" ] && [ "$TRAVIS_TAG" != "" ]; then ./scripts/cross_compile.sh; ghr --username wallyqs --token $GITHUB_TOKEN --replace --debug $TRAVIS_TAG pkg/ ; fi
+  - if [ "$TRAVIS_GO_VERSION" = "1.6" ] && [ "$BUILD_GOOS" = "linux" ] && [ "$TRAVIS_TAG" != "" ]; then ./scripts/cross_compile.sh; ghr --username wallyqs --token $GITHUB_TOKEN --replace --debug $TRAVIS_TAG pkg/ ; fi
