@@ -32,10 +32,19 @@ var (
 	skipVerifyOpt = flag.Bool("k", false, "Skip verifying server certificate")
 )
 
+const (
+	DEFAULT_PADDING_SIZE = 2
+	DEFAULT_PADDING      = "  "
+
+	DEFAULT_HOST_PADDING_SIZE = 15
+)
+
 var (
-	defaultHeader       = []interface{}{"HOST", "CID", "NAME", "SUBS", "PENDING", "MSGS_TO", "MSGS_FROM", "BYTES_TO", "BYTES_FROM", "LANG", "VERSION", "UPTIME", "LAST ACTIVITY"}
-	defaultHeaderFormat = "  %-20s %-8s %-15s %-6s  %-10s  %-10s  %-10s  %-10s  %-10s  %-7s  %-7s  %-7s  %-40s"
-	defaultRowFormat    = "  %-20s %-8d %-15s %-6d  %-10s  %-10s  %-10s  %-10s  %-10s  %-7s  %-7s  %-7s  %-40s"
+	defaultHeader = []interface{}{"HOST", "CID", "NAME", "SUBS", "PENDING", "MSGS_TO", "MSGS_FROM", "BYTES_TO", "BYTES_FROM", "LANG", "VERSION", "UPTIME", "LAST ACTIVITY"}
+
+	// Chopped: HOST CID NAME...
+	defaultHeaderFormat = "%-6s  %-10s  %-10s  %-10s  %-10s  %-10s  %-7s  %-7s  %-7s  %-40s"
+	defaultRowFormat    = "%-6d  %-10s  %-10s  %-10s  %-10s  %-10s  %-7s  %-7s  %-7s  %-40s"
 
 	usageHelp = `
 usage: nats-top [-s server] [-m http_port] [-ms https_port] [-n num_connections] [-d delay_secs] [-sort by]
@@ -174,23 +183,84 @@ func generateParagraph(
 	text += fmt.Sprintf("\n\nConnections Polled: %d\n", numConns)
 	displaySubs := engine.DisplaySubs
 
-	// TODO: Dynamic padding for columns
-	connHeader := defaultHeaderFormat
+	// Dynamically add columns and padding depending
+	header := make([]interface{}, 0)
+	hostSize := DEFAULT_HOST_PADDING_SIZE
+
+	// Disable name unless we have seen one using it
+	nameSize := 0
+	for _, conn := range stats.Connz.Conns {
+		var size int
+
+		// host
+		size = len(fmt.Sprintf("%s:%d", conn.IP, conn.Port))
+		if size > hostSize {
+			hostSize = size + DEFAULT_PADDING_SIZE
+		}
+
+		// name
+		size = len(conn.Name)
+		if size > nameSize {
+			nameSize = size + DEFAULT_PADDING_SIZE
+
+			// If using name, ensure that it is not too small...
+			minLen := len("NAME")
+			if nameSize < minLen {
+				nameSize = minLen
+			}
+		}
+	}
+
+	// Initial padding
+	connHeader := DEFAULT_PADDING
+
+	// HOST
+	header = append(header, "HOST")
+	connHeader += "%-" + fmt.Sprintf("%d", hostSize) + "s "
+
+	// CID
+	header = append(header, "CID")
+	connHeader += " %-6s "
+
+	// NAME
+	if nameSize > 0 {
+		header = append(header, "NAME")
+		connHeader += "%-" + fmt.Sprintf("%d", nameSize) + "s "
+	}
+
+	header = append(header, "SUBS", "PENDING", "MSGS_TO", "MSGS_FROM", "BYTES_TO", "BYTES_FROM", "LANG", "VERSION", "UPTIME", "LAST ACTIVITY")
+	connHeader += defaultHeaderFormat
 	if displaySubs {
 		connHeader += "%13s"
 	}
+	// ...LAST ACTIVITY
 	connHeader += "\n"
 
 	var connRows string
 	if displaySubs {
-		subsHeader := append(defaultHeader, "SUBSCRIPTIONS")
-		connRows = fmt.Sprintf(connHeader, subsHeader...)
+		header = append(header, "SUBSCRIPTIONS")
+		connRows = fmt.Sprintf(connHeader, header...)
 	} else {
-		connRows = fmt.Sprintf(connHeader, defaultHeader...)
+		connRows = fmt.Sprintf(connHeader, header...)
 	}
+
+	// Add to screen!
 	text += connRows
 
-	connValues := defaultRowFormat
+	connValues := DEFAULT_PADDING
+
+	// HOST: e.g. 192.168.1.1:78901
+	connValues += "%-" + fmt.Sprintf("%d", hostSize) + "s "
+
+	// CID: e.g. 1234
+	connValues += " %-6d "
+
+	// NAME: e.g. hello
+	if nameSize > 0 {
+		connValues += "%-" + fmt.Sprintf("%d", nameSize) + "s "
+	}
+
+	connValues += defaultRowFormat
 	if displaySubs {
 		connValues += "%s"
 	}
@@ -199,10 +269,23 @@ func generateParagraph(
 	for _, conn := range stats.Connz.Conns {
 		host := fmt.Sprintf("%s:%d", conn.IP, conn.Port)
 
+		// Build the info line
 		var connLine string
-		connLineInfo := []interface{}{host, conn.Cid, conn.Name, conn.NumSubs, top.Psize(int64(conn.Pending)),
-			top.Psize(conn.OutMsgs), top.Psize(conn.InMsgs), top.Psize(conn.OutBytes), top.Psize(conn.InBytes),
-			conn.Lang, conn.Version, conn.Uptime, conn.LastActivity}
+		connLineInfo := make([]interface{}, 0)
+		connLineInfo = append(connLineInfo, host)
+		connLineInfo = append(connLineInfo, conn.Cid)
+
+		// Name not included unless present
+		if nameSize > 0 {
+			connLineInfo = append(connLineInfo, conn.Name)
+		}
+
+		connLineInfo = append(connLineInfo, conn.NumSubs)
+		connLineInfo = append(connLineInfo, top.Psize(int64(conn.Pending)), top.Psize(conn.OutMsgs), top.Psize(conn.InMsgs))
+		connLineInfo = append(connLineInfo, top.Psize(conn.OutBytes), top.Psize(conn.InBytes))
+		connLineInfo = append(connLineInfo, conn.Lang, conn.Version)
+		connLineInfo = append(connLineInfo, conn.Uptime, conn.LastActivity)
+
 		if displaySubs {
 			subs := strings.Join(conn.Subs, ", ")
 			connLineInfo = append(connLineInfo, subs)
@@ -211,6 +294,7 @@ func generateParagraph(
 			connLine = fmt.Sprintf(connValues, connLineInfo...)
 		}
 
+		// Add line to screen!
 		text += connLine
 	}
 
