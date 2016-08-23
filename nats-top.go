@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"strings"
 	"time"
@@ -23,6 +24,7 @@ var (
 	delay       = flag.Int("d", 1, "Refresh interval in seconds.")
 	sortBy      = flag.String("sort", "cid", "Value for which to sort by the connections.")
 	showVersion = flag.Bool("v", false, "Show nats-top version.")
+	lookupDNS   = flag.Bool("lookup", false, "Enable client addresses DNS lookup.")
 
 	// Secure options
 	httpsPort     = flag.Int("ms", 0, "The NATS server secure monitoring port.")
@@ -51,6 +53,8 @@ usage: nats-top [-s server] [-m http_port] [-ms https_port] [-n num_connections]
                 [-cert FILE] [-key FILE ][-cacert FILE] [-k]
 
 `
+	// cache for reducing DNS lookups in case enabled
+	resolvedHosts = map[string]string{}
 )
 
 func usage() {
@@ -192,8 +196,25 @@ func generateParagraph(
 	for _, conn := range stats.Connz.Conns {
 		var size int
 
+		var hostname string
+		if *lookupDNS {
+			// Make a lookup for each one of the ips and memoize
+			// them for subsequent polls.
+			if addr, present := resolvedHosts[conn.IP]; !present {
+				addrs, err := net.LookupAddr(conn.IP)
+				if err == nil && len(addrs) > 0 {
+					hostname = addrs[0]
+					resolvedHosts[conn.IP] = hostname
+				}
+			} else {
+				hostname = addr
+			}
+		} else {
+			hostname = fmt.Sprintf("%s:%d", hostname, conn.Port)
+		}
+
 		// host
-		size = len(fmt.Sprintf("%s:%d", conn.IP, conn.Port))
+		size = len(hostname)
 		if size > hostSize {
 			hostSize = size + DEFAULT_PADDING_SIZE
 		}
@@ -267,12 +288,19 @@ func generateParagraph(
 	connValues += "\n"
 
 	for _, conn := range stats.Connz.Conns {
-		host := fmt.Sprintf("%s:%d", conn.IP, conn.Port)
+		var h string
+		if *lookupDNS {
+			if rh, present := resolvedHosts[conn.IP]; present {
+				h = rh
+			}
+		} else {
+			h = fmt.Sprintf("%s:%d", conn.IP, conn.Port)
+		}
 
 		// Build the info line
 		var connLine string
 		connLineInfo := make([]interface{}, 0)
-		connLineInfo = append(connLineInfo, host)
+		connLineInfo = append(connLineInfo, h)
 		connLineInfo = append(connLineInfo, conn.Cid)
 
 		// Name not included unless present
