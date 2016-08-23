@@ -18,4 +18,4 @@ script:
   - go test -v -race ./util/
 
 after_success:
-  - if [ "$TRAVIS_GO_VERSION" = "1.6" ] && [ "$BUILD_GOOS" = "linux" ] && [ "$TRAVIS_TAG" != "" ]; then ./scripts/cross_compile.sh; ghr --username wallyqs --token $GITHUB_TOKEN --replace --debug $TRAVIS_TAG pkg/ ; fi
+  - if [ "$TRAVIS_GO_VERSION" = "1.6.3" ] && [ "$BUILD_GOOS" = "linux" ] && [ "$TRAVIS_TAG" != "" ]; then ./scripts/cross_compile.sh; ghr --username wallyqs --token $GITHUB_TOKEN --replace --debug $TRAVIS_TAG pkg/ ; fi
