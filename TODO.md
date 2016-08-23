@@ -1,11 +1,12 @@
 
 - [X] Show lang and version of client
-- [X] top like sort and limit
+- [X] `top` like sort and limit
 - [X] Toggle for displaying subscriptions info per conn
 - [X] Add name column
-- [X] Add sorting by uptime,last activity
+- [X] Add sorting by uptime, last activity
 - [X] Support https polling
-- [ ] Align host and add padding depending on length (padding)
-- [ ] Enable prepend '+/-' for asc/desc sorting
-- [ ] Include /routez info
+- [X] Align host and add padding depending on length (padding)
+- [X] reverse lookup from client address
+- [ ] Enable prepend `+/-` for asc/desc sorting
+- [ ] Include `/routez` info
 - [ ] Upgrade gizak framework
