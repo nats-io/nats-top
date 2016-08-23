@@ -93,6 +93,10 @@ While in top view, it is possible to use the following commands:
 
   Toggle displaying connection subscriptions.
 
+- **d**
+
+  Toggle activating DNS address lookup for clients.
+
 - **?**
 
   Show help message with options.

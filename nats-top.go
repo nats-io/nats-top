@@ -524,6 +524,15 @@ func StartUI(engine *top.Engine) {
 				waitingSortOption = false
 			}
 
+			if e.Type == ui.EventKey && (e.Ch == 'd') && !(waitingSortOption || waitingLimitOption) {
+				switch *lookupDNS {
+				case true:
+					*lookupDNS = false
+				case false:
+					*lookupDNS = true
+				}
+			}
+
 			if e.Type == ui.EventResize {
 				ui.Body.Width = ui.TermWidth()
 				ui.Body.Align()
@@ -555,6 +564,8 @@ n<limit>         Set sample size of connections to request from the server.
                  with largest number of subscriptions': -n 1 -sort subs
 
 s                Toggle displaying connection subscriptions.
+
+d                Toggle activating DNS address lookup for clients.
 
 q                Quit nats-top.
 
