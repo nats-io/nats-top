@@ -202,15 +202,20 @@ func generateParagraph(
 			// them for subsequent polls.
 			if addr, present := resolvedHosts[conn.IP]; !present {
 				addrs, err := net.LookupAddr(conn.IP)
-				if err == nil && len(addrs) > 0 {
+				if err == nil && len(addrs) > 0 && len(addrs[0]) > 0 {
 					hostname = addrs[0]
+					resolvedHosts[conn.IP] = hostname
+				} else {
+					// Otherwise just continue to use ip:port as resolved host
+					// can be an empty string even though there were no errors.
+					hostname = fmt.Sprintf("%s:%d", conn.IP, conn.Port)
 					resolvedHosts[conn.IP] = hostname
 				}
 			} else {
 				hostname = addr
 			}
 		} else {
-			hostname = fmt.Sprintf("%s:%d", hostname, conn.Port)
+			hostname = fmt.Sprintf("%s:%d", conn.IP, conn.Port)
 		}
 
 		// host
