@@ -215,7 +215,7 @@ func generateParagraph(
 				hostname = addr
 			}
 		} else {
-			hostname = fmt.Sprintf("%s:%d", hostname, conn.Port)
+			hostname = fmt.Sprintf("%s:%d", conn.IP, conn.Port)
 		}
 
 		// host
