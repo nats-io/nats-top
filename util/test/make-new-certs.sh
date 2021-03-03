@@ -15,7 +15,7 @@ die() { warn "$@"; exit 1; }
 
 [ -f tls.conf ] || die "no tls.conf in current directory"
 
-ORG_NAME='Synadia Communications, LLC'
+ORG_NAME='Synadia Communications, Inc'
 CA_COMMON_NAME='NATS top tool test suite'
 
 # The default duration of the CA in cfssl is 5 years, changing it is
