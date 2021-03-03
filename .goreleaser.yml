@@ -1,0 +1,51 @@
+before:
+  hooks:
+    - go mod download
+builds:
+  - env:
+      - CGO_ENABLED=0
+      - GO111MODULE=on
+    goos:
+      - linux
+      - windows
+      - darwin
+      # Need nats-server 2.2.0 released for FreeBSD:
+      ##- freebsd
+    goarch:
+      - amd64
+      - arm64
+      - arm
+    goarm:
+      - 6
+      - 7
+    ignore:
+      - goos: darwin
+        goarch: 386
+      # These copied from nats-server ignores; if that repo updates the
+      # pre-generated stuff needed for non-cgo cross-compile to FreeBSD, we can
+      # update here too:
+      ##- goos: freebsd
+      ##  goarch: arm
+      ##- goos: freebsd
+      ##  goarch: arm64
+      ##- goos: freebsd
+      ##  goarch: 386
+      # ... but only once nats-server 2.2.0 is released so we have cross-compile for FreeBSD at all
+
+checksum:
+  name_template: 'SHA256SUMS'
+  algorithm: sha256
+
+snapshot:
+  name_template: "{{ .Tag }}-next"
+
+nfpms:
+  - file_name_template: '{{.ProjectName}}-{{.Tag}}-{{.Arch}}{{if .Arm}}{{.Arm}}{{end}}'
+    homepage:  https://nats.io
+    description: "Top(1) style utility for NATS"
+    license: MIT
+    vendor: "Synadia Communications, Inc"
+    formats:
+      - deb
+      - rpm
+
