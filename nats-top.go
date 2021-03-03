@@ -1,4 +1,4 @@
-// Copyright (c) 2015 NATS Messaging System
+// Copyright (c) 2015-2021 The NATS Authors
 package main
 
 import (
@@ -10,12 +10,12 @@ import (
 	"strings"
 	"time"
 
-	gnatsd "github.com/nats-io/gnatsd/server"
+	"github.com/nats-io/nats-server/v2/server"
 	top "github.com/nats-io/nats-top/util"
 	ui "gopkg.in/gizak/termui.v1"
 )
 
-const version = "0.3.2"
+const version = "0.4.0"
 
 var (
 	host        = flag.String("s", "127.0.0.1", "The nats server host.")
@@ -102,11 +102,11 @@ func main() {
 	// Smoke test to abort in case can't connect to server since the beginning.
 	_, err := engine.Request("/varz")
 	if err != nil {
-		log.Printf("nats-top: %s", err)
+		log.Printf("nats-top: /varz smoke test failed: %s", err)
 		usage()
 	}
 
-	sortOpt := gnatsd.SortOpt(*sortBy)
+	sortOpt := server.SortOpt(*sortBy)
 	if !sortOpt.IsValid() {
 		log.Fatalf("nats-top: invalid option to sort by: %s\n", sortOpt)
 		usage()
@@ -139,6 +139,10 @@ func cleanExit() {
 
 func exitWithError() {
 	ui.Close()
+
+	// Show cursor once again
+	fmt.Print("\033[?25h")
+
 	os.Exit(1)
 }
 
@@ -161,8 +165,8 @@ func generateParagraph(
 	slowConsumers := stats.Varz.SlowConsumers
 
 	var serverVersion string
-	if stats.Varz.Info != nil {
-		serverVersion = stats.Varz.Info.Version
+	if stats.Varz.Version != "" {
+		serverVersion = stats.Varz.Version
 	}
 
 	mem := top.Psize(memVal)
@@ -345,8 +349,8 @@ const (
 func StartUI(engine *top.Engine) {
 
 	cleanStats := &top.Stats{
-		Varz:  &gnatsd.Varz{},
-		Connz: &gnatsd.Connz{},
+		Varz:  &server.Varz{},
+		Connz: &server.Connz{},
 		Rates: &top.Rates{},
 		Error: fmt.Errorf(""),
 	}
@@ -428,7 +432,7 @@ func StartUI(engine *top.Engine) {
 
 				if e.Type == ui.EventKey && e.Key == ui.KeyEnter {
 
-					sortOpt := gnatsd.SortOpt(optionBuf)
+					sortOpt := server.SortOpt(optionBuf)
 					if sortOpt.IsValid() {
 						engine.SortOpt = sortOpt
 					} else {

@@ -1,6 +1,7 @@
 package toputils
 
 import (
+	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -9,7 +10,7 @@ import (
 	"net/http"
 	"time"
 
-	gnatsd "github.com/nats-io/gnatsd/server"
+	"github.com/nats-io/nats-server/v2/server"
 )
 
 const DisplaySubscriptions = 1
@@ -20,7 +21,7 @@ type Engine struct {
 	HttpClient  *http.Client
 	Uri         string
 	Conns       int
-	SortOpt     gnatsd.SortOpt
+	SortOpt     server.SortOpt
 	Delay       int
 	DisplaySubs bool
 	StatsCh     chan *Stats
@@ -46,9 +47,9 @@ func (engine *Engine) Request(path string) (interface{}, error) {
 	uri := engine.Uri + path
 	switch path {
 	case "/varz":
-		statz = &gnatsd.Varz{}
+		statz = &server.Varz{}
 	case "/connz":
-		statz = &gnatsd.Connz{}
+		statz = &server.Connz{}
 		uri += fmt.Sprintf("?limit=%d&sort=%s", engine.Conns, engine.SortOpt)
 		if engine.DisplaySubs {
 			uri += fmt.Sprintf("&subs=%d", DisplaySubscriptions)
@@ -62,17 +63,25 @@ func (engine *Engine) Request(path string) (interface{}, error) {
 		defer resp.Body.Close()
 	}
 	if err != nil {
-		return nil, fmt.Errorf("could not get stats from server: %v\n", err)
+		return nil, fmt.Errorf("could not get stats from server: %w", err)
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("could not read response body: %v\n", err)
+		return nil, fmt.Errorf("could not read response body: %w", err)
+	}
+
+	if resp.StatusCode != 200 {
+		end := bytes.IndexAny(body, "\r\n")
+		if end > 80 {
+			end = 80
+		}
+		return nil, fmt.Errorf("stats request failed %d: %q", resp.StatusCode, string(body[:end]))
 	}
 
 	err = json.Unmarshal(body, &statz)
 	if err != nil {
-		return nil, fmt.Errorf("could not unmarshal json: %v\n", err)
+		return nil, fmt.Errorf("could not unmarshal statz json: %w", err)
 	}
 
 	return statz, nil
@@ -105,8 +114,8 @@ func (engine *Engine) MonitorStats() error {
 
 	for {
 		stats := &Stats{
-			Varz:  &gnatsd.Varz{},
-			Connz: &gnatsd.Connz{},
+			Varz:  &server.Varz{},
+			Connz: &server.Connz{},
 			Rates: &Rates{},
 			Error: fmt.Errorf(""),
 		}
@@ -123,7 +132,7 @@ func (engine *Engine) MonitorStats() error {
 					engine.StatsCh <- stats
 					continue
 				}
-				if varz, ok := result.(*gnatsd.Varz); ok {
+				if varz, ok := result.(*server.Varz); ok {
 					stats.Varz = varz
 				}
 			}
@@ -136,7 +145,7 @@ func (engine *Engine) MonitorStats() error {
 					engine.StatsCh <- stats
 					continue
 				}
-				if connz, ok := result.(*gnatsd.Connz); ok {
+				if connz, ok := result.(*server.Connz); ok {
 					stats.Connz = connz
 				}
 			}
@@ -225,8 +234,8 @@ func (engine *Engine) SetupHTTP() {
 
 // Stats represents the monitored data from a NATS server.
 type Stats struct {
-	Varz  *gnatsd.Varz
-	Connz *gnatsd.Connz
+	Varz  *server.Varz
+	Connz *server.Connz
 	Rates *Rates
 	Error error
 }

@@ -7,21 +7,21 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nats-io/gnatsd/server"
-	gnatsd "github.com/nats-io/gnatsd/test"
+	"github.com/nats-io/nats-server/v2/server"
+	server_test "github.com/nats-io/nats-server/v2/test"
 )
 
-// Borrowed from gnatsd tests
-const GNATSD_PORT = 11422
+// Borrowed from nats-server tests
+const NATS_SERVER_TEST_PORT = 11422
 
 func runMonitorServer(monitorPort int) *server.Server {
 	resetPreviousHTTPConnections()
-	opts := gnatsd.DefaultTestOptions
+	opts := server_test.DefaultTestOptions
 	opts.Host = "127.0.0.1"
-	opts.Port = GNATSD_PORT
+	opts.Port = NATS_SERVER_TEST_PORT
 	opts.HTTPPort = monitorPort
 
-	return gnatsd.RunServer(&opts)
+	return server_test.RunServer(&opts)
 }
 
 func resetPreviousHTTPConnections() {
@@ -52,9 +52,9 @@ func TestFetchingStatz(t *testing.T) {
 		t.Fatalf("Could not monitor number of cores. got: %v", got)
 	}
 
-	// Create simple subscription to gnatsd port to show subscriptions
+	// Create simple subscription to nats-server test port to show subscriptions
 	go func() {
-		conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", GNATSD_PORT))
+		conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", NATS_SERVER_TEST_PORT))
 		if err != nil {
 			t.Fatalf("could not create subcription to NATS: %s", err)
 		}
@@ -153,7 +153,7 @@ func TestMonitorStats(t *testing.T) {
 }
 
 func TestMonitoringTLSConnectionUsingRootCA(t *testing.T) {
-	srv, _ := gnatsd.RunServerWithConfig("./test/tls.conf")
+	srv, _ := server_test.RunServerWithConfig("./test/tls.conf")
 	defer srv.Shutdown()
 
 	engine := NewEngine("127.0.0.1", 8223, 10, 1)
@@ -183,7 +183,7 @@ func TestMonitoringTLSConnectionUsingRootCA(t *testing.T) {
 }
 
 func TestMonitoringTLSConnectionUsingRootCAWithCerts(t *testing.T) {
-	srv, _ := gnatsd.RunServerWithConfig("./test/tls.conf")
+	srv, _ := server_test.RunServerWithConfig("./test/tls.conf")
 	defer srv.Shutdown()
 
 	engine := NewEngine("127.0.0.1", 8223, 10, 1)
@@ -213,7 +213,7 @@ func TestMonitoringTLSConnectionUsingRootCAWithCerts(t *testing.T) {
 }
 
 func TestMonitoringTLSConnectionUsingCertsAndInsecure(t *testing.T) {
-	srv, _ := gnatsd.RunServerWithConfig("./test/tls.conf")
+	srv, _ := server_test.RunServerWithConfig("./test/tls.conf")
 	defer srv.Shutdown()
 
 	engine := NewEngine("127.0.0.1", 8223, 10, 1)
