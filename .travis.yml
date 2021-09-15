@@ -1,8 +1,8 @@
 language: go
 
 go:
-  - 1.15
   - 1.16
+  - 1.17
   - tip
 
 env:
@@ -18,4 +18,12 @@ script:
   - go test -v -race ./util/
 
 after_success:
-  - if [ "$TRAVIS_GO_VERSION" = "1.6.3" ] && [ "$BUILD_GOOS" = "linux" ] && [ "$TRAVIS_TAG" != "" ]; then ./scripts/cross_compile.sh; ghr --username wallyqs --token $GITHUB_TOKEN --replace --debug $TRAVIS_TAG pkg/ ; fi
+  - |
+    case "$TRAVIS_GO_VERSION" in
+      (1.17|1.17.*)
+        if [[ "$BUILD_GOOS" == "linux" ]] && [[ -n "$TRAVIS_TAG" ]]; then
+          ./scripts/cross_compile.sh
+          ghr --username wallyqs --token $GITHUB_TOKEN --replace --debug "$TRAVIS_TAG" pkg/
+        fi
+        ;;
+    esac
