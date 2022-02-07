@@ -101,52 +101,91 @@ func TestFetchingStatz(t *testing.T) {
 
 func TestPsize(t *testing.T) {
 
-	expected := "1023"
-	got := Psize(false, 1023)
-	if got != expected {
-		t.Fatalf("Wrong human readable value. expected: %v, got: %v", expected, got)
+	type Args struct {
+		displayRawBytes bool
+		input           int64
 	}
 
-	expected = "1.0K"
-	got = Psize(false, kibibyte)
-	if got != expected {
-		t.Fatalf("Wrong human readable value. expected: %v, got: %v", expected, got)
+	testcases := []struct {
+		description string
+		args        Args
+		want        string
+	}{
+		{
+			description: "given input=1023 and display_raw_bytes=false    expect return value string to be '1023'",
+			args: Args{
+				input:           int64(1023),
+				displayRawBytes: false,
+			},
+			want: "1023",
+		},
+		{
+			description: "given input=kibibyte and display_raw_bytes=false    expect return value string to be '1.0K'",
+			args: Args{
+				input:           int64(kibibyte),
+				displayRawBytes: false,
+			},
+			want: "1.0K",
+		},
+		{
+			description: "given input=mebibyte and display_raw_bytes=false    expect return value string to be '1.0M'",
+			args: Args{
+				input:           int64(mebibyte),
+				displayRawBytes: false,
+			},
+			want: "1.0M",
+		},
+		{
+			description: "given input=gibibyte and display_raw_bytes=false    expect return value string to be '1.0G'",
+			args: Args{
+				input:           int64(gibibyte),
+				displayRawBytes: false,
+			},
+			want: "1.0G",
+		},
+
+		{
+			description: "given input=1023 and display_raw_bytes=true    expect return value string to be '1023'",
+			args: Args{
+				input:           int64(1023),
+				displayRawBytes: true,
+			},
+			want: "1023",
+		},
+		{
+			description: "given input=kibibyte and display_raw_bytes=true    expect return value string to be '1048576'",
+			args: Args{
+				input:           int64(kibibyte),
+				displayRawBytes: true,
+			},
+			want: fmt.Sprintf("%d", kibibyte),
+		},
+		{
+			description: "given input=mebibyte and display_raw_bytes=true    expect return value string to be '1048576'",
+			args: Args{
+				input:           int64(mebibyte),
+				displayRawBytes: true,
+			},
+			want: fmt.Sprintf("%d", mebibyte),
+		},
+		{
+			description: "given input=gibibyte and display_raw_bytes=true    expect return value string to be '1073741824'",
+			args: Args{
+				input:           int64(gibibyte),
+				displayRawBytes: true,
+			},
+			want: fmt.Sprintf("%d", gibibyte),
+		},
 	}
 
-	expected = "1.0M"
-	got = Psize(false, mebibyte)
-	if got != expected {
-		t.Fatalf("Wrong human readable value. expected: %v, got: %v", expected, got)
-	}
+	for _, testcase := range testcases {
+		t.Run(testcase.description, func(t *testing.T) {
+			got := Psize(testcase.args.displayRawBytes, testcase.args.input)
 
-	expected = "1.0G"
-	got = Psize(false, gibibyte)
-	if got != expected {
-		t.Fatalf("Wrong human readable value. expected: %v, got: %v", expected, got)
-	}
-
-	expected = "1023"
-	got = Psize(true, 1023)
-	if got != expected {
-		t.Fatalf("Wrong human readable value. expected: %v, got: %v", expected, got)
-	}
-
-	expected = fmt.Sprintf("%d", kibibyte)
-	got = Psize(true, kibibyte)
-	if got != expected {
-		t.Fatalf("Wrong human readable value. expected: %v, got: %v", expected, got)
-	}
-
-	expected = fmt.Sprintf("%d", mebibyte)
-	got = Psize(true, mebibyte)
-	if got != expected {
-		t.Fatalf("Wrong human readable value. expected: %v, got: %v", expected, got)
-	}
-
-	expected = fmt.Sprintf("%d", gibibyte)
-	got = Psize(true, gibibyte)
-	if got != expected {
-		t.Fatalf("Wrong human readable value. expected: %v, got: %v", expected, got)
+			if got != testcase.want {
+				t.Errorf("%s wanted \"%s\", got \"%s\"", testcase.description, testcase.want, got)
+			}
+		})
 	}
 }
 
