@@ -543,6 +543,15 @@ func StartUI(engine *top.Engine) {
 				}
 			}
 
+			if e.Type == ui.EventKey && (e.Ch == 'b') && !(waitingSortOption || waitingLimitOption) {
+				switch *displayRawBytes {
+				case true:
+					*displayRawBytes = false
+				case false:
+					*displayRawBytes = true
+				}
+			}
+
 			if e.Type == ui.EventResize {
 				ui.Body.Width = ui.TermWidth()
 				ui.Body.Align()
@@ -576,6 +585,8 @@ n<limit>         Set sample size of connections to request from the server.
 s                Toggle displaying connection subscriptions.
 
 d                Toggle activating DNS address lookup for clients.
+
+b                Toggle displaying raw bytes.
 
 q                Quit nats-top.
 
