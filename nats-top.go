@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2021 The NATS Authors
+// Copyright (c) 2015-2022 The NATS Authors
 package main
 
 import (
@@ -15,7 +15,7 @@ import (
 	ui "gopkg.in/gizak/termui.v1"
 )
 
-const version = "0.4.0"
+const version = "0.5.0"
 
 var (
 	host            = flag.String("s", "127.0.0.1", "The nats server host.")
@@ -543,6 +543,15 @@ func StartUI(engine *top.Engine) {
 				}
 			}
 
+			if e.Type == ui.EventKey && (e.Ch == 'b') && !(waitingSortOption || waitingLimitOption) {
+				switch *displayRawBytes {
+				case true:
+					*displayRawBytes = false
+				case false:
+					*displayRawBytes = true
+				}
+			}
+
 			if e.Type == ui.EventResize {
 				ui.Body.Width = ui.TermWidth()
 				ui.Body.Align()
@@ -576,6 +585,8 @@ n<limit>         Set sample size of connections to request from the server.
 s                Toggle displaying connection subscriptions.
 
 d                Toggle activating DNS address lookup for clients.
+
+b                Toggle displaying raw bytes.
 
 q                Quit nats-top.
 
