@@ -102,25 +102,49 @@ func TestFetchingStatz(t *testing.T) {
 func TestPsize(t *testing.T) {
 
 	expected := "1023"
-	got := Psize(1023)
+	got := Psize(false, 1023)
 	if got != expected {
 		t.Fatalf("Wrong human readable value. expected: %v, got: %v", expected, got)
 	}
 
 	expected = "1.0K"
-	got = Psize(1024)
+	got = Psize(false, kibibyte)
 	if got != expected {
 		t.Fatalf("Wrong human readable value. expected: %v, got: %v", expected, got)
 	}
 
 	expected = "1.0M"
-	got = Psize(1024 * 1024)
+	got = Psize(false, mebibyte)
 	if got != expected {
 		t.Fatalf("Wrong human readable value. expected: %v, got: %v", expected, got)
 	}
 
 	expected = "1.0G"
-	got = Psize(1024 * 1024 * 1024)
+	got = Psize(false, gibibyte)
+	if got != expected {
+		t.Fatalf("Wrong human readable value. expected: %v, got: %v", expected, got)
+	}
+
+	expected = "1023"
+	got = Psize(true, 1023)
+	if got != expected {
+		t.Fatalf("Wrong human readable value. expected: %v, got: %v", expected, got)
+	}
+
+	expected = fmt.Sprintf("%d", kibibyte)
+	got = Psize(true, kibibyte)
+	if got != expected {
+		t.Fatalf("Wrong human readable value. expected: %v, got: %v", expected, got)
+	}
+
+	expected = fmt.Sprintf("%d", mebibyte)
+	got = Psize(true, mebibyte)
+	if got != expected {
+		t.Fatalf("Wrong human readable value. expected: %v, got: %v", expected, got)
+	}
+
+	expected = fmt.Sprintf("%d", gibibyte)
+	got = Psize(true, gibibyte)
 	if got != expected {
 		t.Fatalf("Wrong human readable value. expected: %v, got: %v", expected, got)
 	}

@@ -18,13 +18,14 @@ import (
 const version = "0.4.0"
 
 var (
-	host        = flag.String("s", "127.0.0.1", "The nats server host.")
-	port        = flag.Int("m", 8222, "The NATS server monitoring port.")
-	conns       = flag.Int("n", 1024, "Maximum number of connections to poll.")
-	delay       = flag.Int("d", 1, "Refresh interval in seconds.")
-	sortBy      = flag.String("sort", "cid", "Value for which to sort by the connections.")
-	showVersion = flag.Bool("v", false, "Show nats-top version.")
-	lookupDNS   = flag.Bool("lookup", false, "Enable client addresses DNS lookup.")
+	host            = flag.String("s", "127.0.0.1", "The nats server host.")
+	port            = flag.Int("m", 8222, "The NATS server monitoring port.")
+	conns           = flag.Int("n", 1024, "Maximum number of connections to poll.")
+	delay           = flag.Int("d", 1, "Refresh interval in seconds.")
+	sortBy          = flag.String("sort", "cid", "Value for which to sort by the connections.")
+	lookupDNS       = flag.Bool("lookup", false, "Enable client addresses DNS lookup.")
+	showVersion     = flag.Bool("v", false, "Show nats-top version.")
+	displayRawBytes = flag.Bool("b", false, "Display traffic in raw bytes.")
 
 	// Secure options
 	httpsPort     = flag.Int("ms", 0, "The NATS server secure monitoring port.")
@@ -50,7 +51,7 @@ var (
 
 	usageHelp = `
 usage: nats-top [-s server] [-m http_port] [-ms https_port] [-n num_connections] [-d delay_secs] [-sort by]
-                [-cert FILE] [-key FILE ][-cacert FILE] [-k]
+                [-cert FILE] [-key FILE ][-cacert FILE] [-k] [-b]
 
 `
 	// cache for reducing DNS lookups in case enabled
@@ -169,15 +170,15 @@ func generateParagraph(
 		serverVersion = stats.Varz.Version
 	}
 
-	mem := top.Psize(memVal)
-	inMsgs := top.Psize(inMsgsVal)
-	outMsgs := top.Psize(outMsgsVal)
-	inBytes := top.Psize(inBytesVal)
-	outBytes := top.Psize(outBytesVal)
+	mem := top.Psize(false, memVal) //memory is exempt from the rawbytes flag
+	inMsgs := top.Psize(*displayRawBytes, inMsgsVal)
+	outMsgs := top.Psize(*displayRawBytes, outMsgsVal)
+	inBytes := top.Psize(*displayRawBytes, inBytesVal)
+	outBytes := top.Psize(*displayRawBytes, outBytesVal)
 	inMsgsRate := stats.Rates.InMsgsRate
 	outMsgsRate := stats.Rates.OutMsgsRate
-	inBytesRate := top.Psize(int64(stats.Rates.InBytesRate))
-	outBytesRate := top.Psize(int64(stats.Rates.OutBytesRate))
+	inBytesRate := top.Psize(*displayRawBytes, int64(stats.Rates.InBytesRate))
+	outBytesRate := top.Psize(*displayRawBytes, int64(stats.Rates.OutBytesRate))
 
 	info := "NATS server version %s (uptime: %s) %s"
 	info += "\nServer:\n  Load: CPU:  %.1f%%  Memory: %s  Slow Consumers: %d\n"
@@ -318,8 +319,8 @@ func generateParagraph(
 		}
 
 		connLineInfo = append(connLineInfo, conn.NumSubs)
-		connLineInfo = append(connLineInfo, top.Psize(int64(conn.Pending)), top.Psize(conn.OutMsgs), top.Psize(conn.InMsgs))
-		connLineInfo = append(connLineInfo, top.Psize(conn.OutBytes), top.Psize(conn.InBytes))
+		connLineInfo = append(connLineInfo, top.Psize(*displayRawBytes, int64(conn.Pending)), top.Psize(*displayRawBytes, conn.OutMsgs), top.Psize(*displayRawBytes, conn.InMsgs))
+		connLineInfo = append(connLineInfo, top.Psize(*displayRawBytes, conn.OutBytes), top.Psize(*displayRawBytes, conn.InBytes))
 		connLineInfo = append(connLineInfo, conn.Lang, conn.Version)
 		connLineInfo = append(connLineInfo, conn.Uptime, conn.LastActivity)
 

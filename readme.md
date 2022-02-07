@@ -41,7 +41,7 @@ and releases of the binary are also [available](https://github.com/nats-io/nats-
 
 ```
 usage: nats-top [-s server] [-m http_port] [-ms https_port] [-n num_connections] [-d delay_secs] [-sort by]
-                [-cert FILE] [-key FILE ][-cacert FILE] [-k]
+                [-cert FILE] [-key FILE ][-cacert FILE] [-k] [-b]
 ```
 
 - `-m http_port`, `-ms https_port`
@@ -67,6 +67,10 @@ usage: nats-top [-s server] [-m http_port] [-ms https_port] [-n num_connections]
 - `-k`
 
   Configure to skip verification of certificate.
+
+- `-b`
+
+  Displays traffic in raw bytes.
 
 ## Commands
 
