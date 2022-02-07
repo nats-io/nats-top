@@ -112,7 +112,7 @@ func TestPsize(t *testing.T) {
 		want        string
 	}{
 		{
-			description: "given input=1023 and display_raw_bytes=false    expect return value string to be '1023'",
+			description: "given input 1023 and display_raw_bytes false    expect return value string to be '1023'",
 			args: Args{
 				input:           int64(1023),
 				displayRawBytes: false,
@@ -120,7 +120,7 @@ func TestPsize(t *testing.T) {
 			want: "1023",
 		},
 		{
-			description: "given input=kibibyte and display_raw_bytes=false    expect return value string to be '1.0K'",
+			description: "given input kibibyte and display_raw_bytes false    expect return value string to be '1.0K'",
 			args: Args{
 				input:           int64(kibibyte),
 				displayRawBytes: false,
@@ -128,7 +128,7 @@ func TestPsize(t *testing.T) {
 			want: "1.0K",
 		},
 		{
-			description: "given input=mebibyte and display_raw_bytes=false    expect return value string to be '1.0M'",
+			description: "given input mebibyte and display_raw_bytes false    expect return value string to be '1.0M'",
 			args: Args{
 				input:           int64(mebibyte),
 				displayRawBytes: false,
@@ -136,7 +136,7 @@ func TestPsize(t *testing.T) {
 			want: "1.0M",
 		},
 		{
-			description: "given input=gibibyte and display_raw_bytes=false    expect return value string to be '1.0G'",
+			description: "given input gibibyte and display_raw_bytes false    expect return value string to be '1.0G'",
 			args: Args{
 				input:           int64(gibibyte),
 				displayRawBytes: false,
@@ -145,7 +145,7 @@ func TestPsize(t *testing.T) {
 		},
 
 		{
-			description: "given input=1023 and display_raw_bytes=true    expect return value string to be '1023'",
+			description: "given input 1023 and display_raw_bytes true    expect return value string to be '1023'",
 			args: Args{
 				input:           int64(1023),
 				displayRawBytes: true,
@@ -153,7 +153,7 @@ func TestPsize(t *testing.T) {
 			want: "1023",
 		},
 		{
-			description: "given input=kibibyte and display_raw_bytes=true    expect return value string to be '1048576'",
+			description: "given input kibibyte and display_raw_bytes true    expect return value string to be '1048576'",
 			args: Args{
 				input:           int64(kibibyte),
 				displayRawBytes: true,
@@ -161,7 +161,7 @@ func TestPsize(t *testing.T) {
 			want: fmt.Sprintf("%d", kibibyte),
 		},
 		{
-			description: "given input=mebibyte and display_raw_bytes=true    expect return value string to be '1048576'",
+			description: "given input mebibyte and display_raw_bytes true    expect return value string to be '1048576'",
 			args: Args{
 				input:           int64(mebibyte),
 				displayRawBytes: true,
@@ -169,7 +169,7 @@ func TestPsize(t *testing.T) {
 			want: fmt.Sprintf("%d", mebibyte),
 		},
 		{
-			description: "given input=gibibyte and display_raw_bytes=true    expect return value string to be '1073741824'",
+			description: "given input gibibyte and display_raw_bytes true    expect return value string to be '1073741824'",
 			args: Args{
 				input:           int64(gibibyte),
 				displayRawBytes: true,
