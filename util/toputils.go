@@ -254,10 +254,10 @@ const mebibyte = 1024 * 1024
 const gibibyte = 1024 * 1024 * 1024
 
 // Psize takes a float and returns a human readable string.
-func Psize(s int64) string {
+func Psize(displayRawValue bool, s int64) string {
 	size := float64(s)
 
-	if size < kibibyte {
+	if displayRawValue || size < kibibyte {
 		return fmt.Sprintf("%.0f", size)
 	}
 
