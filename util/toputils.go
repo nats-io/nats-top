@@ -259,13 +259,15 @@ func Psize(s int64) string {
 
 	if size < kibibyte {
 		return fmt.Sprintf("%.0f", size)
-	} else if size < mebibyte {
-		return fmt.Sprintf("%.1fK", size/kibibyte)
-	} else if size < gibibyte {
-		return fmt.Sprintf("%.1fM", size/mebibyte)
-	} else if size >= gibibyte {
-		return fmt.Sprintf("%.1fG", size/gibibyte)
-	} else {
-		return "NA"
 	}
+
+	if size < mebibyte {
+		return fmt.Sprintf("%.1fK", size/kibibyte)
+	}
+
+	if size < gibibyte {
+		return fmt.Sprintf("%.1fM", size/mebibyte)
+	}
+
+	return fmt.Sprintf("%.1fG", size/gibibyte)
 }
