@@ -249,19 +249,25 @@ type Rates struct {
 	OutBytesRate float64
 }
 
+const kibibyte = 1024
+const mebibyte = 1024 * 1024
+const gibibyte = 1024 * 1024 * 1024
+
 // Psize takes a float and returns a human readable string.
-func Psize(s int64) string {
+func Psize(displayRawValue bool, s int64) string {
 	size := float64(s)
 
-	if size < 1024 {
+	if displayRawValue || size < kibibyte {
 		return fmt.Sprintf("%.0f", size)
-	} else if size < (1024 * 1024) {
-		return fmt.Sprintf("%.1fK", size/1024)
-	} else if size < (1024 * 1024 * 1024) {
-		return fmt.Sprintf("%.1fM", size/1024/1024)
-	} else if size >= (1024 * 1024 * 1024) {
-		return fmt.Sprintf("%.1fG", size/1024/1024/1024)
-	} else {
-		return "NA"
 	}
+
+	if size < mebibyte {
+		return fmt.Sprintf("%.1fK", size/kibibyte)
+	}
+
+	if size < gibibyte {
+		return fmt.Sprintf("%.1fM", size/mebibyte)
+	}
+
+	return fmt.Sprintf("%.1fG", size/gibibyte)
 }

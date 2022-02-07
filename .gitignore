@@ -25,3 +25,8 @@ _testmain.go
 
 /dist
 /nats-top
+
+# VSCode
+
+.vscode/**
+*.code-workspace
