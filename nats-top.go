@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2021 The NATS Authors
+// Copyright (c) 2015-2022 The NATS Authors
 package main
 
 import (
@@ -15,7 +15,7 @@ import (
 	ui "gopkg.in/gizak/termui.v1"
 )
 
-const version = "0.4.0"
+const version = "0.5.0"
 
 var (
 	host            = flag.String("s", "127.0.0.1", "The nats server host.")
