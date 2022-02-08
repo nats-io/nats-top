@@ -192,6 +192,95 @@ func (engine *Engine) MonitorStats() error {
 	}
 }
 
+func (engine *Engine) FetchStats(isFirstTime bool, lastPollTime time.Time) (*Stats, time.Time) {
+	var inMsgsDelta int64
+	var outMsgsDelta int64
+	var inBytesDelta int64
+	var outBytesDelta int64
+
+	var inMsgsLastVal int64
+	var outMsgsLastVal int64
+	var inBytesLastVal int64
+	var outBytesLastVal int64
+
+	var inMsgsRate float64
+	var outMsgsRate float64
+	var inBytesRate float64
+	var outBytesRate float64
+
+	stats := &Stats{
+		Varz:  &server.Varz{},
+		Connz: &server.Connz{},
+		Rates: &Rates{},
+		Error: fmt.Errorf(""),
+	}
+
+	// Get /varz
+	{
+		result, err := engine.Request("/varz")
+		if err != nil {
+			stats.Error = err
+			engine.StatsCh <- stats
+			return nil, time.Time{}
+		}
+
+		if varz, ok := result.(*server.Varz); ok {
+			stats.Varz = varz
+		}
+	}
+
+	// Get /connz
+	{
+		result, err := engine.Request("/connz")
+		if err != nil {
+			stats.Error = err
+			engine.StatsCh <- stats
+			return nil, time.Time{}
+		}
+
+		if connz, ok := result.(*server.Connz); ok {
+			stats.Connz = connz
+		}
+	}
+
+	// Periodic snapshot to get per sec metrics
+	inMsgsVal := stats.Varz.InMsgs
+	outMsgsVal := stats.Varz.OutMsgs
+	inBytesVal := stats.Varz.InBytes
+	outBytesVal := stats.Varz.OutBytes
+
+	inMsgsDelta = inMsgsVal - inMsgsLastVal
+	outMsgsDelta = outMsgsVal - outMsgsLastVal
+	inBytesDelta = inBytesVal - inBytesLastVal
+	outBytesDelta = outBytesVal - outBytesLastVal
+
+	inMsgsLastVal = inMsgsVal
+	outMsgsLastVal = outMsgsVal
+	inBytesLastVal = inBytesVal
+	outBytesLastVal = outBytesVal
+
+	now := time.Now()
+	tdelta := now.Sub(lastPollTime)
+	newLastPollTime := now
+
+	// Calculate rates but the first time
+	if !isFirstTime {
+		inMsgsRate = float64(inMsgsDelta) / tdelta.Seconds()
+		outMsgsRate = float64(outMsgsDelta) / tdelta.Seconds()
+		inBytesRate = float64(inBytesDelta) / tdelta.Seconds()
+		outBytesRate = float64(outBytesDelta) / tdelta.Seconds()
+	}
+
+	stats.Rates = &Rates{
+		InMsgsRate:   inMsgsRate,
+		OutMsgsRate:  outMsgsRate,
+		InBytesRate:  inBytesRate,
+		OutBytesRate: outBytesRate,
+	}
+
+	return stats, newLastPollTime
+}
+
 // SetupHTTPS sets up the http client and uri to use for polling.
 func (engine *Engine) SetupHTTPS(caCertOpt, certOpt, keyOpt string, skipVerifyOpt bool) error {
 	tlsConfig := &tls.Config{}
