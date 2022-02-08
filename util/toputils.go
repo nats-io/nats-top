@@ -180,7 +180,6 @@ func (engine *Engine) FetchStats(isFirstTime bool, lastPollTime time.Time) (*Sta
 
 	now := time.Now()
 	tdelta := now.Sub(lastPollTime)
-	newLastPollTime := now
 
 	// Calculate rates but the first time
 	if !isFirstTime {
@@ -197,7 +196,7 @@ func (engine *Engine) FetchStats(isFirstTime bool, lastPollTime time.Time) (*Sta
 		OutBytesRate: outBytesRate,
 	}
 
-	return stats, newLastPollTime
+	return stats, now
 }
 
 // SetupHTTPS sets up the http client and uri to use for polling.
