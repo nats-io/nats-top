@@ -40,7 +40,7 @@ and releases of the binary are also [available](https://github.com/nats-io/nats-
 ## Usage
 
 ```
-usage: nats-top [-s server] [-m http_port] [-ms https_port] [-n num_connections] [-d delay_secs] [-sort by]
+usage: nats-top [-s server] [-m http_port] [-ms https_port] [-n num_connections] [-d delay_secs] [-r max] [-sort by]
                 [-cert FILE] [-key FILE ][-cacert FILE] [-k] [-b]
 ```
 
@@ -55,6 +55,10 @@ usage: nats-top [-s server] [-m http_port] [-ms https_port] [-n num_connections]
 - `-d delay_in_secs`
 
   Screen refresh interval (default: 1 second).
+
+- `-r max`
+
+  Specify the maximum number of times nats-top should refresh nats-stats before exiting (default: `0` which stands for `"no limit"`).
 
 - `-sort by `
 

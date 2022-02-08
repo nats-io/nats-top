@@ -18,14 +18,15 @@ import (
 const version = "0.5.0"
 
 var (
-	host            = flag.String("s", "127.0.0.1", "The nats server host.")
-	port            = flag.Int("m", 8222, "The NATS server monitoring port.")
-	conns           = flag.Int("n", 1024, "Maximum number of connections to poll.")
-	delay           = flag.Int("d", 1, "Refresh interval in seconds.")
-	sortBy          = flag.String("sort", "cid", "Value for which to sort by the connections.")
-	lookupDNS       = flag.Bool("lookup", false, "Enable client addresses DNS lookup.")
-	showVersion     = flag.Bool("v", false, "Show nats-top version.")
-	displayRawBytes = flag.Bool("b", false, "Display traffic in raw bytes.")
+	host              = flag.String("s", "127.0.0.1", "The nats server host.")
+	port              = flag.Int("m", 8222, "The NATS server monitoring port.")
+	conns             = flag.Int("n", 1024, "Maximum number of connections to poll.")
+	delay             = flag.Int("d", 1, "Refresh interval in seconds.")
+	sortBy            = flag.String("sort", "cid", "Value for which to sort by the connections.")
+	lookupDNS         = flag.Bool("lookup", false, "Enable client addresses DNS lookup.")
+	showVersion       = flag.Bool("v", false, "Show nats-top version.")
+	displayRawBytes   = flag.Bool("b", false, "Display traffic in raw bytes.")
+	maxStatsRefreshes = flag.Int("r", -1, "Specifies the maximum number of times nats-top should refresh nats-stats before exiting.")
 
 	// Secure options
 	httpsPort     = flag.Int("ms", 0, "The NATS server secure monitoring port.")
@@ -50,7 +51,7 @@ var (
 	defaultRowFormat    = "%-6d  %-10s  %-10s  %-10s  %-10s  %-10s  %-7s  %-7s  %-7s  %-40s"
 
 	usageHelp = `
-usage: nats-top [-s server] [-m http_port] [-ms https_port] [-n num_connections] [-d delay_secs] [-sort by]
+usage: nats-top [-s server] [-m http_port] [-ms https_port] [-n num_connections] [-d delay_secs] [-r max] [-sort by]
                 [-cert FILE] [-key FILE ][-cacert FILE] [-k] [-b]
 
 `
@@ -429,6 +430,7 @@ func StartUI(engine *top.Engine) {
 
 	go update()
 
+	numberOfRedrawsDueToNewStats := 0
 	for {
 		select {
 		case e := <-evt:
@@ -562,8 +564,17 @@ func StartUI(engine *top.Engine) {
 				go func() { redraw <- DueToViewportResize }()
 			}
 
-		case <-redraw:
+		case cause := <-redraw:
 			ui.Render(ui.Body)
+
+			if cause == DueToNewStats {
+				numberOfRedrawsDueToNewStats += 1
+
+				if *maxStatsRefreshes > 0 && numberOfRedrawsDueToNewStats >= *maxStatsRefreshes {
+					close(engine.ShutdownCh)
+					cleanExit()
+				}
+			}
 		}
 	}
 }
