@@ -391,12 +391,9 @@ func StartUI(engine *top.Engine) {
 
 	update := func() {
 		for {
-			receivedStats := <-engine.StatsCh
-			stats := receivedStats
+			stats := <-engine.StatsCh
 
-			// Update top view text
-			text = generateParagraph(engine, stats)
-			par.Text = text
+			par.Text = generateParagraph(engine, stats) // Update top view text
 
 			redraw <- struct{}{}
 		}
