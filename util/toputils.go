@@ -99,7 +99,7 @@ func (engine *Engine) MonitorStats() error {
 		case <-engine.ShutdownCh:
 			return nil
 		case <-time.After(delay):
-			stats, newLastPollTime := engine.FetchStats(isFirstTime, lastPollTime)
+			stats, newLastPollTime := engine.fetchStats(isFirstTime, lastPollTime)
 			if stats == nil {
 				continue
 			}
@@ -111,7 +111,13 @@ func (engine *Engine) MonitorStats() error {
 	}
 }
 
-func (engine *Engine) FetchStats(isFirstTime bool, lastPollTime time.Time) (*Stats, time.Time) {
+func (engine *Engine) FetchStatsSnapshot() *Stats {
+	stats, _ := engine.fetchStats(true, time.Now())
+
+	return stats
+}
+
+func (engine *Engine) fetchStats(isFirstTime bool, lastPollTime time.Time) (*Stats, time.Time) {
 	var inMsgsDelta int64
 	var outMsgsDelta int64
 	var inBytesDelta int64
