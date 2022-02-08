@@ -60,6 +60,10 @@ usage: nats-top [-s server] [-m http_port] [-ms https_port] [-n num_connections]
 
   Specify the maximum number of times nats-top should refresh nats-stats before exiting (default: `0` which stands for `"no limit"`).
 
+- `-o file`
+
+  Saves the very first nats-top snapshot to the given file and exits. If '-' is passed then the snapshot is printed to the standard output.
+
 - `-sort by `
 
   Field to use for sorting the connections.

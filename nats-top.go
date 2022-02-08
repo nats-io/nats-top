@@ -24,7 +24,7 @@ var (
 	delay             = flag.Int("d", 1, "Refresh interval in seconds.")
 	sortBy            = flag.String("sort", "cid", "Value for which to sort by the connections.")
 	lookupDNS         = flag.Bool("lookup", false, "Enable client addresses DNS lookup.")
-	outputFile        = flag.String("o", "", "Save the very first nats-top snapshot to the given file and exit.")
+	outputFile        = flag.String("o", "", "Save the very first nats-top snapshot to the given file and exit. If '-' is passed then the snapshot is printed the standard output.")
 	showVersion       = flag.Bool("v", false, "Show nats-top version.")
 	displayRawBytes   = flag.Bool("b", false, "Display traffic in raw bytes.")
 	maxStatsRefreshes = flag.Int("r", -1, "Specifies the maximum number of times nats-top should refresh nats-stats before exiting.")
@@ -133,13 +133,18 @@ func main() {
 }
 
 func saveStatsSnapshotToFile(engine *top.Engine, outputFile *string) {
+	stats := engine.FetchStatsSnapshot()
+	text := generateParagraph(engine, stats)
+
+	if *outputFile == "-" {
+		fmt.Print(text)
+		return
+	}
+
 	f, err := os.OpenFile(*outputFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
 	if err != nil {
 		log.Fatalf("nats-top: failed to open output file '%s': %s\n", *outputFile, err)
 	}
-
-	stats := engine.FetchStatsSnapshot()
-	text := generateParagraph(engine, stats)
 
 	if _, err = f.WriteString(text); err != nil {
 		log.Fatalf("nats-top: failed to write stats-snapshot to output file '%s': %s\n", *outputFile, err)
