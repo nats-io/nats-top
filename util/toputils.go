@@ -100,12 +100,11 @@ func (engine *Engine) MonitorStats() error {
 			return nil
 		case <-time.After(delay):
 			stats, newLastPollTime := engine.fetchStats(isFirstTime, lastPollTime)
-			if stats == nil {
-				continue
+			if stats != nil && stats.Error == errDud {
+				isFirstTime = false
+				lastPollTime = newLastPollTime
 			}
 
-			isFirstTime = false
-			lastPollTime = newLastPollTime
 			engine.StatsCh <- stats
 		}
 	}
@@ -116,6 +115,8 @@ func (engine *Engine) FetchStatsSnapshot() *Stats {
 
 	return stats
 }
+
+var errDud = fmt.Errorf("")
 
 func (engine *Engine) fetchStats(isFirstTime bool, lastPollTime time.Time) (*Stats, time.Time) {
 	var inMsgsDelta int64
@@ -137,7 +138,7 @@ func (engine *Engine) fetchStats(isFirstTime bool, lastPollTime time.Time) (*Sta
 		Varz:  &server.Varz{},
 		Connz: &server.Connz{},
 		Rates: &Rates{},
-		Error: fmt.Errorf(""),
+		Error: errDud,
 	}
 
 	// Get /varz
@@ -145,8 +146,7 @@ func (engine *Engine) fetchStats(isFirstTime bool, lastPollTime time.Time) (*Sta
 		result, err := engine.Request("/varz")
 		if err != nil {
 			stats.Error = err
-			engine.StatsCh <- stats
-			return nil, time.Time{}
+			return stats, time.Time{}
 		}
 
 		if varz, ok := result.(*server.Varz); ok {
@@ -159,8 +159,7 @@ func (engine *Engine) fetchStats(isFirstTime bool, lastPollTime time.Time) (*Sta
 		result, err := engine.Request("/connz")
 		if err != nil {
 			stats.Error = err
-			engine.StatsCh <- stats
-			return nil, time.Time{}
+			return stats, time.Time{}
 		}
 
 		if connz, ok := result.(*server.Connz); ok {
