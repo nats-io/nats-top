@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -100,7 +101,7 @@ func (engine *Engine) MonitorStats() error {
 			return nil
 		case <-time.After(delay):
 			stats, newLastPollTime := engine.fetchStats(isFirstTime, lastPollTime)
-			if stats != nil && stats.Error == errDud {
+			if stats != nil && errors.Is(stats.Error, errDud) {
 				isFirstTime = false
 				lastPollTime = newLastPollTime
 			}
