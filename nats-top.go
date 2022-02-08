@@ -346,6 +346,13 @@ const (
 	HelpViewMode
 )
 
+type RedrawCause int
+
+const (
+	DueToNewStats RedrawCause = iota
+	DueToViewportResize
+)
+
 // StartUI periodically refreshes the screen using recent data.
 func StartUI(engine *top.Engine) {
 
@@ -387,7 +394,7 @@ func StartUI(engine *top.Engine) {
 	viewMode := TopViewMode
 
 	// Used for pinging the IU to refresh the screen with new values
-	redraw := make(chan struct{})
+	redraw := make(chan RedrawCause)
 
 	update := func() {
 		for {
@@ -395,7 +402,7 @@ func StartUI(engine *top.Engine) {
 
 			par.Text = generateParagraph(engine, stats) // Update top view text
 
-			redraw <- struct{}{}
+			redraw <- DueToNewStats
 		}
 	}
 
@@ -552,7 +559,7 @@ func StartUI(engine *top.Engine) {
 			if e.Type == ui.EventResize {
 				ui.Body.Width = ui.TermWidth()
 				ui.Body.Align()
-				go func() { redraw <- struct{}{} }()
+				go func() { redraw <- DueToViewportResize }()
 			}
 
 		case <-redraw:
