@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -90,8 +91,35 @@ func (engine *Engine) Request(path string) (interface{}, error) {
 // MonitorStats is ran as a goroutine and takes options
 // which can modify how poll values then sends to channel.
 func (engine *Engine) MonitorStats() error {
-	var pollTime time.Time
+	delay := time.Duration(engine.Delay) * time.Second
+	isFirstTime := true
+	lastPollTime := time.Now()
 
+	for {
+		select {
+		case <-engine.ShutdownCh:
+			return nil
+		case <-time.After(delay):
+			stats, newLastPollTime := engine.fetchStats(isFirstTime, lastPollTime)
+			if stats != nil && errors.Is(stats.Error, errDud) {
+				isFirstTime = false
+				lastPollTime = newLastPollTime
+			}
+
+			engine.StatsCh <- stats
+		}
+	}
+}
+
+func (engine *Engine) FetchStatsSnapshot() *Stats {
+	stats, _ := engine.fetchStats(true, time.Now())
+
+	return stats
+}
+
+var errDud = fmt.Errorf("")
+
+func (engine *Engine) fetchStats(isFirstTime bool, lastPollTime time.Time) (*Stats, time.Time) {
 	var inMsgsDelta int64
 	var outMsgsDelta int64
 	var inBytesDelta int64
@@ -107,89 +135,74 @@ func (engine *Engine) MonitorStats() error {
 	var inBytesRate float64
 	var outBytesRate float64
 
-	first := true
-	pollTime = time.Now()
+	stats := &Stats{
+		Varz:  &server.Varz{},
+		Connz: &server.Connz{},
+		Rates: &Rates{},
+		Error: errDud,
+	}
 
-	delay := time.Duration(engine.Delay) * time.Second
-
-	for {
-		stats := &Stats{
-			Varz:  &server.Varz{},
-			Connz: &server.Connz{},
-			Rates: &Rates{},
-			Error: fmt.Errorf(""),
+	// Get /varz
+	{
+		result, err := engine.Request("/varz")
+		if err != nil {
+			stats.Error = err
+			return stats, time.Time{}
 		}
 
-		select {
-		case <-engine.ShutdownCh:
-			return nil
-		case <-time.After(delay):
-			// Get /varz
-			{
-				result, err := engine.Request("/varz")
-				if err != nil {
-					stats.Error = err
-					engine.StatsCh <- stats
-					continue
-				}
-				if varz, ok := result.(*server.Varz); ok {
-					stats.Varz = varz
-				}
-			}
-
-			// Get /connz
-			{
-				result, err := engine.Request("/connz")
-				if err != nil {
-					stats.Error = err
-					engine.StatsCh <- stats
-					continue
-				}
-				if connz, ok := result.(*server.Connz); ok {
-					stats.Connz = connz
-				}
-			}
-
-			// Periodic snapshot to get per sec metrics
-			inMsgsVal := stats.Varz.InMsgs
-			outMsgsVal := stats.Varz.OutMsgs
-			inBytesVal := stats.Varz.InBytes
-			outBytesVal := stats.Varz.OutBytes
-
-			inMsgsDelta = inMsgsVal - inMsgsLastVal
-			outMsgsDelta = outMsgsVal - outMsgsLastVal
-			inBytesDelta = inBytesVal - inBytesLastVal
-			outBytesDelta = outBytesVal - outBytesLastVal
-
-			inMsgsLastVal = inMsgsVal
-			outMsgsLastVal = outMsgsVal
-			inBytesLastVal = inBytesVal
-			outBytesLastVal = outBytesVal
-
-			now := time.Now()
-			tdelta := now.Sub(pollTime)
-			pollTime = now
-
-			// Calculate rates but the first time
-			if first {
-				first = false
-			} else {
-				inMsgsRate = float64(inMsgsDelta) / tdelta.Seconds()
-				outMsgsRate = float64(outMsgsDelta) / tdelta.Seconds()
-				inBytesRate = float64(inBytesDelta) / tdelta.Seconds()
-				outBytesRate = float64(outBytesDelta) / tdelta.Seconds()
-			}
-
-			stats.Rates = &Rates{
-				InMsgsRate:   inMsgsRate,
-				OutMsgsRate:  outMsgsRate,
-				InBytesRate:  inBytesRate,
-				OutBytesRate: outBytesRate,
-			}
-
-			engine.StatsCh <- stats
+		if varz, ok := result.(*server.Varz); ok {
+			stats.Varz = varz
 		}
 	}
+
+	// Get /connz
+	{
+		result, err := engine.Request("/connz")
+		if err != nil {
+			stats.Error = err
+			return stats, time.Time{}
+		}
+
+		if connz, ok := result.(*server.Connz); ok {
+			stats.Connz = connz
+		}
+	}
+
+	// Periodic snapshot to get per sec metrics
+	inMsgsVal := stats.Varz.InMsgs
+	outMsgsVal := stats.Varz.OutMsgs
+	inBytesVal := stats.Varz.InBytes
+	outBytesVal := stats.Varz.OutBytes
+
+	inMsgsDelta = inMsgsVal - inMsgsLastVal
+	outMsgsDelta = outMsgsVal - outMsgsLastVal
+	inBytesDelta = inBytesVal - inBytesLastVal
+	outBytesDelta = outBytesVal - outBytesLastVal
+
+	inMsgsLastVal = inMsgsVal
+	outMsgsLastVal = outMsgsVal
+	inBytesLastVal = inBytesVal
+	outBytesLastVal = outBytesVal
+
+	now := time.Now()
+	tdelta := now.Sub(lastPollTime)
+
+	// Calculate rates but the first time
+	if !isFirstTime {
+		inMsgsRate = float64(inMsgsDelta) / tdelta.Seconds()
+		outMsgsRate = float64(outMsgsDelta) / tdelta.Seconds()
+		inBytesRate = float64(inBytesDelta) / tdelta.Seconds()
+		outBytesRate = float64(outBytesDelta) / tdelta.Seconds()
+	}
+
+	stats.Rates = &Rates{
+		InMsgsRate:   inMsgsRate,
+		OutMsgsRate:  outMsgsRate,
+		InBytesRate:  inBytesRate,
+		OutBytesRate: outBytesRate,
+	}
+
+	return stats, now
 }
 
 // SetupHTTPS sets up the http client and uri to use for polling.

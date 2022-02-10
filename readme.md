@@ -40,7 +40,7 @@ and releases of the binary are also [available](https://github.com/nats-io/nats-
 ## Usage
 
 ```
-usage: nats-top [-s server] [-m http_port] [-ms https_port] [-n num_connections] [-d delay_secs] [-r max] [-sort by]
+usage: nats-top [-s server] [-m http_port] [-ms https_port] [-n num_connections] [-d delay_secs] [-r max] [-o FILE] [-sort by]
                 [-cert FILE] [-key FILE ][-cacert FILE] [-k] [-b]
 ```
 
@@ -59,6 +59,10 @@ usage: nats-top [-s server] [-m http_port] [-ms https_port] [-n num_connections]
 - `-r max`
 
   Specify the maximum number of times nats-top should refresh nats-stats before exiting (default: `0` which stands for `"no limit"`).
+
+- `-o file`
+
+  Saves the very first nats-top snapshot to the given file and exits. If '-' is passed then the snapshot is printed to the standard output.
 
 - `-sort by `
 
