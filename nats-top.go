@@ -17,6 +17,13 @@ import (
 
 const version = "0.5.0"
 
+type outputFormatType string
+
+const (
+	outputFormatCSV  = outputFormatType("csv")
+	outputFormatText = outputFormatType("text")
+)
+
 var (
 	host              = flag.String("s", "127.0.0.1", "The nats server host.")
 	port              = flag.Int("m", 8222, "The NATS server monitoring port.")
@@ -26,6 +33,7 @@ var (
 	lookupDNS         = flag.Bool("lookup", false, "Enable client addresses DNS lookup.")
 	outputFile        = flag.String("o", "", "Save the very first nats-top snapshot to the given file and exit. If '-' is passed then the snapshot is printed the standard output.")
 	showVersion       = flag.Bool("v", false, "Show nats-top version.")
+	outputFormat      = flag.String("f", string(outputFormatText), "Specifies the format for the output file when the '-o' parameter is used. Can be 'text' (default) or 'csv'.")
 	displayRawBytes   = flag.Bool("b", false, "Display traffic in raw bytes.")
 	maxStatsRefreshes = flag.Int("r", -1, "Specifies the maximum number of times nats-top should refresh nats-stats before exiting.")
 
@@ -45,17 +53,16 @@ const (
 )
 
 var (
-	// Chopped: HOST CID NAME...
-	defaultHeaderFormat = "%-6s  %-10s  %-10s  %-10s  %-10s  %-10s  %-7s  %-7s  %-7s  %-40s"
+	defaultHeaderFormat = "%-6s  %-10s  %-10s  %-10s  %-10s  %-10s  %-7s  %-7s  %-7s  %-40s" // Chopped: HOST CID NAME...
 	defaultRowFormat    = "%-6d  %-10s  %-10s  %-10s  %-10s  %-10s  %-7s  %-7s  %-7s  %-40s"
 
 	usageHelp = `
-usage: nats-top [-s server] [-m http_port] [-ms https_port] [-n num_connections] [-d delay_secs] [-r max] [-sort by]
+usage: nats-top [-s server] [-m http_port] [-ms https_port] [-n num_connections] [-d delay_secs] [-r max] [-o FILE] [-f FORMAT] [-sort by]
                 [-cert FILE] [-key FILE ][-cacert FILE] [-k] [-b]
 
 `
-	// cache for reducing DNS lookups in case enabled
-	resolvedHosts = map[string]string{}
+
+	resolvedHosts = map[string]string{} // cache for reducing DNS lookups in case enabled
 )
 
 func usage() {
@@ -115,7 +122,7 @@ func main() {
 	engine.SortOpt = sortOpt
 
 	if *outputFile != "" {
-		saveStatsSnapshotToFile(engine, outputFile)
+		saveStatsSnapshotToFile(engine, outputFile, outputFormatType(*outputFormat))
 		return
 	}
 
@@ -130,9 +137,9 @@ func main() {
 	StartUI(engine)
 }
 
-func saveStatsSnapshotToFile(engine *top.Engine, outputFile *string) {
+func saveStatsSnapshotToFile(engine *top.Engine, outputFile *string, outputFormat outputFormatType) {
 	stats := engine.FetchStatsSnapshot()
-	text := generateParagraph(engine, stats)
+	text := generateParagraph(engine, stats, outputFormat)
 
 	if *outputFile == "-" {
 		fmt.Print(text)
@@ -170,6 +177,7 @@ func cleanExit() {
 func generateParagraph(
 	engine *top.Engine,
 	stats *top.Stats,
+	outputFormat outputFormatType,
 ) string {
 
 	// Snapshot current stats
@@ -198,15 +206,33 @@ func generateParagraph(
 	inBytesRate := top.Psize(*displayRawBytes, int64(stats.Rates.InBytesRate))
 	outBytesRate := top.Psize(*displayRawBytes, int64(stats.Rates.OutBytesRate))
 
-	info := "NATS server version %s (uptime: %s) %s"
-	info += "\nServer:\n  Load: CPU:  %.1f%%  Memory: %s  Slow Consumers: %d\n"
-	info += "  In:   Msgs: %s  Bytes: %s  Msgs/Sec: %.1f  Bytes/Sec: %s\n"
-	info += "  Out:  Msgs: %s  Bytes: %s  Msgs/Sec: %.1f  Bytes/Sec: %s"
+	info := ""
+	if outputFormat == outputFormatText || len(outputFormat) == 0 {
+		info += "NATS server version %s (uptime: %s) %s\n"
+		info += "Server:\n"
+		info += "  Load: CPU:  %.1f%%  Memory: %s  Slow Consumers: %d\n"
+		info += "  In:   Msgs: %s  Bytes: %s  Msgs/Sec: %.1f  Bytes/Sec: %s\n"
+		info += "  Out:  Msgs: %s  Bytes: %s  Msgs/Sec: %.1f  Bytes/Sec: %s"
 
-	text := fmt.Sprintf(info, serverVersion, uptime, stats.Error,
+	} else if outputFormat == outputFormatCSV {
+		info += "NATS server version,%s,uptime:,%s,%s\n"
+		info += "Server:\n"
+		info += "Load:,CPU:,%.1f%%,Memory:,%s,Slow Consumers:,%d\n"
+		info += "In:,Msgs:,%s,Bytes:,%s,Msgs/Sec:,%.1f,Bytes/Sec:,%s\n"
+		info += "Out:,Msgs:,%s,Bytes:,%s,Msgs/Sec:,%.1f,Bytes/Sec:,%s"
+
+	} else {
+		panicMsg := fmt.Sprintf("nats-top: unknown output format %q", outputFormat)
+		panic(panicMsg)
+	}
+
+	text := fmt.Sprintf(
+		info, serverVersion, uptime, stats.Error,
 		cpu, mem, slowConsumers,
 		inMsgs, inBytes, inMsgsRate, inBytesRate,
-		outMsgs, outBytes, outMsgsRate, outBytesRate)
+		outMsgs, outBytes, outMsgsRate, outBytesRate,
+	)
+
 	text += fmt.Sprintf("\n\nConnections Polled: %d\n", numConns)
 	displaySubs := engine.DisplaySubs
 
@@ -382,7 +408,7 @@ func StartUI(engine *top.Engine) {
 	}
 
 	// Show empty values on first display
-	text := generateParagraph(engine, cleanStats)
+	text := generateParagraph(engine, cleanStats, outputFormatText)
 	par := ui.NewPar(text)
 	par.Height = ui.TermHeight()
 	par.Width = ui.TermWidth()
@@ -418,7 +444,7 @@ func StartUI(engine *top.Engine) {
 		for {
 			stats := <-engine.StatsCh
 
-			par.Text = generateParagraph(engine, stats) // Update top view text
+			par.Text = generateParagraph(engine, stats, outputFormatText) // Update top view text
 
 			redraw <- DueToNewStats
 		}
