@@ -84,7 +84,7 @@ func main() {
 		engine = top.NewEngine(*host, *httpsPort, *conns, *delay)
 		err := engine.SetupHTTPS(*caCertOpt, *certOpt, *keyOpt, *skipVerifyOpt)
 		if err != nil {
-			log.Printf("nats-top: %s", err)
+			fmt.Fprintf(os.Stderr, "nats-top: %s", err)
 			usage()
 		}
 	} else {
@@ -93,25 +93,25 @@ func main() {
 	}
 
 	if engine.Host == "" {
-		log.Printf("nats-top: invalid monitoring endpoint")
+		fmt.Fprintf(os.Stderr, "nats-top: invalid monitoring endpoint")
 		usage()
 	}
 
 	if engine.Port == 0 {
-		log.Printf("nats-top: invalid monitoring port")
+		fmt.Fprintf(os.Stderr, "nats-top: invalid monitoring port")
 		usage()
 	}
 
 	// Smoke test to abort in case can't connect to server since the beginning.
 	_, err := engine.Request("/varz")
 	if err != nil {
-		log.Printf("nats-top: /varz smoke test failed: %s", err)
+		fmt.Fprintf(os.Stderr, "nats-top: /varz smoke test failed: %s", err)
 		usage()
 	}
 
 	sortOpt := server.SortOpt(*sortBy)
 	if !sortOpt.IsValid() {
-		log.Fatalf("nats-top: invalid option to sort by: %s\n", sortOpt)
+		fmt.Fprintf(os.Stderr, "nats-top: invalid option to sort by: %s\n", sortOpt)
 		usage()
 	}
 	engine.SortOpt = sortOpt
