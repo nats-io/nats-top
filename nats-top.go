@@ -45,8 +45,6 @@ const (
 )
 
 var (
-	defaultHeader = []interface{}{"HOST", "CID", "NAME", "SUBS", "PENDING", "MSGS_TO", "MSGS_FROM", "BYTES_TO", "BYTES_FROM", "LANG", "VERSION", "UPTIME", "LAST ACTIVITY"}
-
 	// Chopped: HOST CID NAME...
 	defaultHeaderFormat = "%-6s  %-10s  %-10s  %-10s  %-10s  %-10s  %-7s  %-7s  %-7s  %-40s"
 	defaultRowFormat    = "%-6d  %-10s  %-10s  %-10s  %-10s  %-10s  %-7s  %-7s  %-7s  %-40s"
