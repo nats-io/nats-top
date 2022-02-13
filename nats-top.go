@@ -433,14 +433,13 @@ func StartUI(engine *top.Engine) {
 
 	optionBuf := ""
 	refreshOptionHeader := func() {
-		// Need to mask what was typed before
-		clrline := "\033[1;1H\033[6;1H                  "
+		clrline := "\033[1;1H\033[6;1H                  " // Need to mask what was typed before
 
 		clrline += "  "
 		for i := 0; i < len(optionBuf); i++ {
 			clrline += "  "
 		}
-		fmt.Printf(clrline)
+		fmt.Print(clrline)
 	}
 
 	evt := ui.EventCh()
