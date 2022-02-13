@@ -236,27 +236,23 @@ func generateParagraph(
 	text += fmt.Sprintf("\n\nConnections Polled: %d\n", numConns)
 	displaySubs := engine.DisplaySubs
 
-	// Dynamically add columns and padding depending
-	header := make([]interface{}, 0)
+	header := make([]interface{}, 0) // Dynamically add columns and padding depending
 	hostSize := DEFAULT_HOST_PADDING_SIZE
 
-	// Disable name unless we have seen one using it
-	nameSize := 0
+	nameSize := 0 // Disable name unless we have seen one using it
 	for _, conn := range stats.Connz.Conns {
 		var size int
 
 		var hostname string
 		if *lookupDNS {
-			// Make a lookup for each one of the ips and memoize
-			// them for subsequent polls.
-			if addr, present := resolvedHosts[conn.IP]; !present {
+			if addr, present := resolvedHosts[conn.IP]; !present { // Make a lookup for each one of the ips and memoize them for subsequent polls
 				addrs, err := net.LookupAddr(conn.IP)
 				if err == nil && len(addrs) > 0 && len(addrs[0]) > 0 {
 					hostname = addrs[0]
 					resolvedHosts[conn.IP] = hostname
 				} else {
 					// Otherwise just continue to use ip:port as resolved host
-					// can be an empty string even though there were no errors.
+					// can be an empty string even though there were no errors
 					hostname = fmt.Sprintf("%s:%d", conn.IP, conn.Port)
 					resolvedHosts[conn.IP] = hostname
 				}
@@ -267,38 +263,31 @@ func generateParagraph(
 			hostname = fmt.Sprintf("%s:%d", conn.IP, conn.Port)
 		}
 
-		// host
-		size = len(hostname)
+		size = len(hostname) // host
 		if size > hostSize {
 			hostSize = size + DEFAULT_PADDING_SIZE
 		}
 
-		// name
-		size = len(conn.Name)
+		size = len(conn.Name) // name
 		if size > nameSize {
 			nameSize = size + DEFAULT_PADDING_SIZE
 
-			// If using name, ensure that it is not too small...
-			minLen := len("NAME")
+			minLen := len("NAME") // If using name, ensure that it is not too small...
 			if nameSize < minLen {
 				nameSize = minLen
 			}
 		}
 	}
 
-	// Initial padding
-	connHeader := DEFAULT_PADDING
+	connHeader := DEFAULT_PADDING // Initial padding
 
-	// HOST
-	header = append(header, "HOST")
+	header = append(header, "HOST") // HOST
 	connHeader += "%-" + fmt.Sprintf("%d", hostSize) + "s "
 
-	// CID
-	header = append(header, "CID")
+	header = append(header, "CID") // CID
 	connHeader += " %-6s "
 
-	// NAME
-	if nameSize > 0 {
+	if nameSize > 0 { // NAME
 		header = append(header, "NAME")
 		connHeader += "%-" + fmt.Sprintf("%d", nameSize) + "s "
 	}
@@ -308,8 +297,8 @@ func generateParagraph(
 	if displaySubs {
 		connHeader += "%13s"
 	}
-	// ...LAST ACTIVITY
-	connHeader += "\n"
+
+	connHeader += "\n" // ...LAST ACTIVITY
 
 	var connRows string
 	if displaySubs {
@@ -319,19 +308,15 @@ func generateParagraph(
 		connRows = fmt.Sprintf(connHeader, header...)
 	}
 
-	// Add to screen!
-	text += connRows
+	text += connRows // Add to screen!
 
 	connValues := DEFAULT_PADDING
 
-	// HOST: e.g. 192.168.1.1:78901
-	connValues += "%-" + fmt.Sprintf("%d", hostSize) + "s "
+	connValues += "%-" + fmt.Sprintf("%d", hostSize) + "s " // HOST: e.g. 192.168.1.1:78901
 
-	// CID: e.g. 1234
-	connValues += " %-6d "
+	connValues += " %-6d " // CID: e.g. 1234
 
-	// NAME: e.g. hello
-	if nameSize > 0 {
+	if nameSize > 0 { // NAME: e.g. hello
 		connValues += "%-" + fmt.Sprintf("%d", nameSize) + "s "
 	}
 
@@ -351,14 +336,12 @@ func generateParagraph(
 			h = fmt.Sprintf("%s:%d", conn.IP, conn.Port)
 		}
 
-		// Build the info line
-		var connLine string
+		var connLine string // Build the info line
 		connLineInfo := make([]interface{}, 0)
 		connLineInfo = append(connLineInfo, h)
 		connLineInfo = append(connLineInfo, conn.Cid)
 
-		// Name not included unless present
-		if nameSize > 0 {
+		if nameSize > 0 { // Name not included unless present
 			connLineInfo = append(connLineInfo, conn.Name)
 		}
 
@@ -376,8 +359,7 @@ func generateParagraph(
 			connLine = fmt.Sprintf(connValues, connLineInfo...)
 		}
 
-		// Add line to screen!
-		text += connLine
+		text += connLine // Add line to screen!
 	}
 
 	return text
