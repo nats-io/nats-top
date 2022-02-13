@@ -167,15 +167,6 @@ func cleanExit() {
 	os.Exit(0)
 }
 
-func exitWithError() {
-	ui.Close()
-
-	// Show cursor once again
-	fmt.Print("\033[?25h")
-
-	os.Exit(1)
-}
-
 // generateParagraph takes an options map and latest Stats
 // then returns a formatted paragraph ready to be rendered
 func generateParagraph(
