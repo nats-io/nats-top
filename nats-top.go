@@ -206,25 +206,10 @@ func generateParagraph(
 	inBytesRate := top.Psize(*displayRawBytes, int64(stats.Rates.InBytesRate))
 	outBytesRate := top.Psize(*displayRawBytes, int64(stats.Rates.OutBytesRate))
 
-	info := ""
-	if outputFormat == outputFormatText || len(outputFormat) == 0 {
-		info += "NATS server version %s (uptime: %s) %s\n"
-		info += "Server:\n"
-		info += "  Load: CPU:  %.1f%%  Memory: %s  Slow Consumers: %d\n"
-		info += "  In:   Msgs: %s  Bytes: %s  Msgs/Sec: %.1f  Bytes/Sec: %s\n"
-		info += "  Out:  Msgs: %s  Bytes: %s  Msgs/Sec: %.1f  Bytes/Sec: %s"
-
-	} else if outputFormat == outputFormatCSV {
-		info += "NATS server version,%s,uptime:,%s,%s\n"
-		info += "Server:\n"
-		info += "Load:,CPU:,%.1f%%,Memory:,%s,Slow Consumers:,%d\n"
-		info += "In:,Msgs:,%s,Bytes:,%s,Msgs/Sec:,%.1f,Bytes/Sec:,%s\n"
-		info += "Out:,Msgs:,%s,Bytes:,%s,Msgs/Sec:,%.1f,Bytes/Sec:,%s"
-
-	} else {
-		panicMsg := fmt.Sprintf("nats-top: unknown output format %q", outputFormat)
-		panic(panicMsg)
-	}
+	info := "NATS server version %s (uptime: %s) %s"
+	info += "\nServer:\n  Load: CPU:  %.1f%%  Memory: %s  Slow Consumers: %d\n"
+	info += "  In:   Msgs: %s  Bytes: %s  Msgs/Sec: %.1f  Bytes/Sec: %s\n"
+	info += "  Out:  Msgs: %s  Bytes: %s  Msgs/Sec: %.1f  Bytes/Sec: %s"
 
 	text := fmt.Sprintf(
 		info, serverVersion, uptime, stats.Error,
