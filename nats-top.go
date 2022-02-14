@@ -180,6 +180,23 @@ func generateParagraph(
 	outputFormat outputFormatType,
 ) string {
 
+	if outputFormat == outputFormatText || len(outputFormat) == 0 {
+		return generateParagraphPlainText(engine, stats)
+	}
+
+	// if outputFormat == outputFormatCSV { // TODO
+	// 	return generateParagraphCsv(engine, stats, ",")
+	// }
+
+	panicMsg := fmt.Sprintf("nats-top: unknown output format %q", outputFormat)
+	panic(panicMsg)
+}
+
+func generateParagraphPlainText(
+	engine *top.Engine,
+	stats *top.Stats,
+) string {
+
 	// Snapshot current stats
 	cpu := stats.Varz.CPU
 	memVal := stats.Varz.Mem
