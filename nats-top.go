@@ -17,13 +17,6 @@ import (
 
 const version = "0.5.0"
 
-type outputFormatType string
-
-const (
-	outputFormatCSV  = outputFormatType("csv")
-	outputFormatText = outputFormatType("text")
-)
-
 var (
 	host              = flag.String("s", "127.0.0.1", "The nats server host.")
 	port              = flag.Int("m", 8222, "The NATS server monitoring port.")
@@ -33,7 +26,7 @@ var (
 	lookupDNS         = flag.Bool("lookup", false, "Enable client addresses DNS lookup.")
 	outputFile        = flag.String("o", "", "Save the very first nats-top snapshot to the given file and exit. If '-' is passed then the snapshot is printed the standard output.")
 	showVersion       = flag.Bool("v", false, "Show nats-top version.")
-	outputFormat      = flag.String("f", string(outputFormatText), "Specifies the format for the output file when the '-o' parameter is used. Can be 'text' (default) or 'csv'.")
+	outputDelimiter   = flag.String("l", "", "Specifies the delimiter to use for the output file when the '-o' parameter is used. By default this option is unset which means that standard grid-like plain-text output will be used.")
 	displayRawBytes   = flag.Bool("b", false, "Display traffic in raw bytes.")
 	maxStatsRefreshes = flag.Int("r", -1, "Specifies the maximum number of times nats-top should refresh nats-stats before exiting.")
 
@@ -45,25 +38,11 @@ var (
 	skipVerifyOpt = flag.Bool("k", false, "Skip verifying server certificate")
 )
 
-const (
-	DEFAULT_PADDING_SIZE = 2
-	DEFAULT_PADDING      = "  "
-
-	DEFAULT_HOST_PADDING_SIZE = 15
-)
-
-var (
-	defaultHeaderFormat = "%-6s  %-10s  %-10s  %-10s  %-10s  %-10s  %-7s  %-7s  %-7s  %-40s" // Chopped: HOST CID NAME...
-	defaultRowFormat    = "%-6d  %-10s  %-10s  %-10s  %-10s  %-10s  %-7s  %-7s  %-7s  %-40s"
-
-	usageHelp = `
-usage: nats-top [-s server] [-m http_port] [-ms https_port] [-n num_connections] [-d delay_secs] [-r max] [-o FILE] [-f FORMAT] [-sort by]
+const usageHelp = `
+usage: nats-top [-s server] [-m http_port] [-ms https_port] [-n num_connections] [-d delay_secs] [-r max] [-o FILE] [-l DELIMITER] [-sort by]
                 [-cert FILE] [-key FILE ][-cacert FILE] [-k] [-b]
 
 `
-
-	resolvedHosts = map[string]string{} // cache for reducing DNS lookups in case enabled
-)
 
 func usage() {
 	log.Fatalf(usageHelp)
@@ -122,7 +101,7 @@ func main() {
 	engine.SortOpt = sortOpt
 
 	if *outputFile != "" {
-		saveStatsSnapshotToFile(engine, outputFile, outputFormatType(*outputFormat))
+		saveStatsSnapshotToFile(engine, outputFile, *outputDelimiter)
 		return
 	}
 
@@ -137,9 +116,9 @@ func main() {
 	StartUI(engine)
 }
 
-func saveStatsSnapshotToFile(engine *top.Engine, outputFile *string, outputFormat outputFormatType) {
+func saveStatsSnapshotToFile(engine *top.Engine, outputFile *string, outputDelimiter string) {
 	stats := engine.FetchStatsSnapshot()
-	text := generateParagraph(engine, stats, outputFormat)
+	text := generateParagraph(engine, stats, outputDelimiter)
 
 	if *outputFile == "-" {
 		fmt.Print(text)
@@ -177,20 +156,31 @@ func cleanExit() {
 func generateParagraph(
 	engine *top.Engine,
 	stats *top.Stats,
-	outputFormat outputFormatType,
+	outputDelimiter string,
 ) string {
 
-	if outputFormat == outputFormatText || len(outputFormat) == 0 {
-		return generateParagraphPlainText(engine, stats)
+	if len(outputDelimiter) > 0 { //default
+		return generateParagraphCSV(engine, stats, outputDelimiter)
 	}
 
-	// if outputFormat == outputFormatCSV { // TODO
-	// 	return generateParagraphCsv(engine, stats, ",")
-	// }
-
-	panicMsg := fmt.Sprintf("nats-top: unknown output format %q", outputFormat)
-	panic(panicMsg)
+	return generateParagraphPlainText(engine, stats)
 }
+
+const (
+	DEFAULT_PADDING_SIZE = 2
+	DEFAULT_PADDING      = "  "
+
+	DEFAULT_HOST_PADDING_SIZE = 15
+)
+
+var (
+	resolvedHosts = map[string]string{} // cache for reducing DNS lookups in case enabled
+
+	standardHeaders = []interface{}{"SUBS", "PENDING", "MSGS_TO", "MSGS_FROM", "BYTES_TO", "BYTES_FROM", "LANG", "VERSION", "UPTIME", "LAST_ACTIVITY"}
+
+	defaultHeaderColumns = []string{"%-6s", "%-10s", "%-10s", "%-10s", "%-10s", "%-10s", "%-7s", "%-7s", "%-7s", "%-40s"} // Chopped: HOST CID NAME...
+	defaultRowColumns    = []string{"%-6d", "%-10s", "%-10s", "%-10s", "%-10s", "%-10s", "%-7s", "%-7s", "%-7s", "%-40s"}
+)
 
 func generateParagraphPlainText(
 	engine *top.Engine,
@@ -223,8 +213,9 @@ func generateParagraphPlainText(
 	inBytesRate := top.Psize(*displayRawBytes, int64(stats.Rates.InBytesRate))
 	outBytesRate := top.Psize(*displayRawBytes, int64(stats.Rates.OutBytesRate))
 
-	info := "NATS server version %s (uptime: %s) %s"
-	info += "\nServer:\n  Load: CPU:  %.1f%%  Memory: %s  Slow Consumers: %d\n"
+	info := "NATS server version %s (uptime: %s) %s\n"
+	info += "Server:\n"
+	info += "  Load: CPU:  %.1f%%  Memory: %s  Slow Consumers: %d\n"
 	info += "  In:   Msgs: %s  Bytes: %s  Msgs/Sec: %.1f  Bytes/Sec: %s\n"
 	info += "  Out:  Msgs: %s  Bytes: %s  Msgs/Sec: %.1f  Bytes/Sec: %s"
 
@@ -294,8 +285,9 @@ func generateParagraphPlainText(
 		connHeader += "%-" + fmt.Sprintf("%d", nameSize) + "s "
 	}
 
-	header = append(header, "SUBS", "PENDING", "MSGS_TO", "MSGS_FROM", "BYTES_TO", "BYTES_FROM", "LANG", "VERSION", "UPTIME", "LAST ACTIVITY")
-	connHeader += defaultHeaderFormat
+	header = append(header, standardHeaders...)
+
+	connHeader += strings.Join(defaultHeaderColumns, "  ")
 	if displaySubs {
 		connHeader += "%13s"
 	}
@@ -322,7 +314,7 @@ func generateParagraphPlainText(
 		connValues += "%-" + fmt.Sprintf("%d", nameSize) + "s "
 	}
 
-	connValues += defaultRowFormat
+	connValues += strings.Join(defaultRowColumns, "  ")
 	if displaySubs {
 		connValues += "%s"
 	}
@@ -356,13 +348,152 @@ func generateParagraphPlainText(
 		if displaySubs {
 			subs := strings.Join(conn.Subs, ", ")
 			connLineInfo = append(connLineInfo, subs)
-			connLine = fmt.Sprintf(connValues, connLineInfo...)
-		} else {
-			connLine = fmt.Sprintf(connValues, connLineInfo...)
 		}
+
+		connLine = fmt.Sprintf(connValues, connLineInfo...)
 
 		text += connLine // Add line to screen!
 	}
+
+	return text
+}
+
+func generateParagraphCSV(
+	engine *top.Engine,
+	stats *top.Stats,
+	delimiter string,
+) string {
+
+	defaultHeaderAndRowColumnsForCsv := []string{"%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s"} // Chopped: HOST CID NAME...
+
+	cpu := stats.Varz.CPU // Snapshot current stats
+	memVal := stats.Varz.Mem
+	uptime := stats.Varz.Uptime
+	numConns := stats.Connz.NumConns
+	inMsgsVal := stats.Varz.InMsgs
+	outMsgsVal := stats.Varz.OutMsgs
+	inBytesVal := stats.Varz.InBytes
+	outBytesVal := stats.Varz.OutBytes
+	slowConsumers := stats.Varz.SlowConsumers
+
+	var serverVersion string
+	if stats.Varz.Version != "" {
+		serverVersion = stats.Varz.Version
+	}
+
+	mem := top.Psize(false, memVal) //memory is exempt from the rawbytes flag
+	inMsgs := top.Psize(*displayRawBytes, inMsgsVal)
+	outMsgs := top.Psize(*displayRawBytes, outMsgsVal)
+	inBytes := top.Psize(*displayRawBytes, inBytesVal)
+	outBytes := top.Psize(*displayRawBytes, outBytesVal)
+	inMsgsRate := stats.Rates.InMsgsRate
+	outMsgsRate := stats.Rates.OutMsgsRate
+	inBytesRate := top.Psize(*displayRawBytes, int64(stats.Rates.InBytesRate))
+	outBytesRate := top.Psize(*displayRawBytes, int64(stats.Rates.OutBytesRate))
+
+	info := "NATS server version[__DELIM__]%s[__DELIM__](uptime: %s)[__DELIM__]%s\n"
+	info += "Server:\n"
+	info += "Load:[__DELIM__]CPU:[__DELIM__]%.1f%%[__DELIM__]Memory:[__DELIM__]%s[__DELIM__]Slow Consumers:[__DELIM__]%d\n"
+	info += "In:[__DELIM__]Msgs:[__DELIM__]%s[__DELIM__]Bytes:[__DELIM__]%s[__DELIM__]Msgs/Sec:[__DELIM__]%.1f[__DELIM__]Bytes/Sec:[__DELIM__]%s\n"
+	info += "Out:[__DELIM__]Msgs:[__DELIM__]%s[__DELIM__]Bytes:[__DELIM__]%s[__DELIM__]Msgs/Sec:[__DELIM__]%.1f[__DELIM__]Bytes/Sec:[__DELIM__]%s"
+
+	text := fmt.Sprintf(
+		info, serverVersion, uptime, stats.Error,
+		cpu, mem, slowConsumers,
+		inMsgs, inBytes, inMsgsRate, inBytesRate,
+		outMsgs, outBytes, outMsgsRate, outBytesRate,
+	)
+
+	text += fmt.Sprintf("\n\nConnections Polled:[__DELIM__]%d\n", numConns)
+
+	displaySubs := engine.DisplaySubs
+	for _, conn := range stats.Connz.Conns {
+		if !*lookupDNS {
+			continue
+		}
+
+		_, present := resolvedHosts[conn.IP]
+		if present {
+			continue
+		}
+
+		addrs, err := net.LookupAddr(conn.IP)
+
+		hostname := ""
+		if err == nil && len(addrs) > 0 && len(addrs[0]) > 0 { // Make a lookup for each one of the ips and memoize them for subsequent polls
+			hostname = addrs[0]
+		} else { // Otherwise just continue to use ip:port as resolved host can be an empty string even though there were no errors
+			hostname = fmt.Sprintf("%s:%d", conn.IP, conn.Port)
+		}
+
+		resolvedHosts[conn.IP] = hostname
+	}
+
+	header := make([]interface{}, 0) // Dynamically add columns
+	connHeader := ""
+
+	header = append(header, "HOST") // HOST
+	connHeader += "%s[__DELIM__]"
+
+	header = append(header, "CID") // CID
+	connHeader += "%s[__DELIM__]"
+
+	header = append(header, "NAME") // NAME
+	connHeader += "%s[__DELIM__]"
+
+	header = append(header, standardHeaders...)
+	connHeader += strings.Join(defaultHeaderAndRowColumnsForCsv, "[__DELIM__]")
+	if displaySubs {
+		connHeader += "%s"
+	}
+
+	connHeader += "\n" // ...LAST ACTIVITY
+
+	if displaySubs {
+		header = append(header, "SUBSCRIPTIONS")
+	}
+
+	text += fmt.Sprintf(connHeader, header...) // Add to screen!
+
+	connValues := "%s[__DELIM__]" // HOST: e.g. 192.168.1.1:78901
+	connValues += "%d[__DELIM__]" // CID: e.g. 1234
+	connValues += "%s[__DELIM__]" // NAME: e.g. hello
+
+	connValues += strings.Join(defaultHeaderAndRowColumnsForCsv, "[__DELIM__]")
+	if displaySubs {
+		connValues += "%s"
+	}
+	connValues += "\n"
+
+	for _, conn := range stats.Connz.Conns {
+		var h string
+		if *lookupDNS {
+			if rh, present := resolvedHosts[conn.IP]; present {
+				h = rh
+			}
+		} else {
+			h = fmt.Sprintf("%s:%d", conn.IP, conn.Port)
+		}
+
+		connLineInfo := make([]interface{}, 0)
+		connLineInfo = append(connLineInfo, h)
+		connLineInfo = append(connLineInfo, conn.Cid)
+		connLineInfo = append(connLineInfo, conn.Name)
+		connLineInfo = append(connLineInfo, fmt.Sprintf("%d", conn.NumSubs))
+		connLineInfo = append(connLineInfo, top.Psize(*displayRawBytes, int64(conn.Pending)), top.Psize(*displayRawBytes, conn.OutMsgs), top.Psize(*displayRawBytes, conn.InMsgs))
+		connLineInfo = append(connLineInfo, top.Psize(*displayRawBytes, conn.OutBytes), top.Psize(*displayRawBytes, conn.InBytes))
+		connLineInfo = append(connLineInfo, conn.Lang, conn.Version)
+		connLineInfo = append(connLineInfo, conn.Uptime, conn.LastActivity)
+
+		if displaySubs {
+			subs := strings.Join(conn.Subs, "[__DELIM__]")
+			connLineInfo = append(connLineInfo, subs)
+		}
+
+		text += fmt.Sprintf(connValues, connLineInfo...) // Add line to screen!
+	}
+
+	text = strings.Replace(text, "[__DELIM__]", delimiter, -1)
 
 	return text
 }
@@ -392,7 +523,7 @@ func StartUI(engine *top.Engine) {
 	}
 
 	// Show empty values on first display
-	text := generateParagraph(engine, cleanStats, outputFormatText)
+	text := generateParagraph(engine, cleanStats, "")
 	par := ui.NewPar(text)
 	par.Height = ui.TermHeight()
 	par.Width = ui.TermWidth()
@@ -428,7 +559,7 @@ func StartUI(engine *top.Engine) {
 		for {
 			stats := <-engine.StatsCh
 
-			par.Text = generateParagraph(engine, stats, outputFormatText) // Update top view text
+			par.Text = generateParagraph(engine, stats, "") // Update top view text
 
 			redraw <- DueToNewStats
 		}
