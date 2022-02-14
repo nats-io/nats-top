@@ -64,6 +64,10 @@ usage: nats-top [-s server] [-m http_port] [-ms https_port] [-n num_connections]
 
   Saves the very first nats-top snapshot to the given file and exits. If '-' is passed then the snapshot is printed to the standard output.
 
+- `-l delimiter`
+
+  Specifies the delimiter to use for the output file when the '-o' parameter is used. By default this option is unset which means that standard grid-like plain-text output will be used.
+
 - `-sort by `
 
   Field to use for sorting the connections.
