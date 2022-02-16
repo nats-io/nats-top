@@ -40,7 +40,7 @@ and releases of the binary are also [available](https://github.com/nats-io/nats-
 ## Usage
 
 ```
-usage: nats-top [-s server] [-m http_port] [-ms https_port] [-n num_connections] [-d delay_secs] [-r max] [-o FILE] [-sort by]
+usage: nats-top [-s server] [-m http_port] [-ms https_port] [-n num_connections] [-d delay_secs] [-r max] [-o FILE] [-l DELIMITER] [-sort by]
                 [-cert FILE] [-key FILE ][-cacert FILE] [-k] [-b]
 ```
 
@@ -63,6 +63,10 @@ usage: nats-top [-s server] [-m http_port] [-ms https_port] [-n num_connections]
 - `-o file`
 
   Saves the very first nats-top snapshot to the given file and exits. If '-' is passed then the snapshot is printed to the standard output.
+
+- `-l delimiter`
+
+  Specifies the delimiter to use for the output file when the '-o' parameter is used. By default this option is unset which means that standard grid-like plain-text output will be used.
 
 - `-sort by `
 
