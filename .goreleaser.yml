@@ -43,6 +43,7 @@ nfpms:
   - file_name_template: '{{.ProjectName}}-{{.Tag}}-{{.Arch}}{{if .Arm}}{{.Arm}}{{end}}'
     homepage:  https://nats.io
     description: "Top(1) style utility for NATS"
+    maintainer: Waldemar Quevedo <wally@synadia.com>
     license: MIT
     vendor: "Synadia Communications, Inc"
     formats:
