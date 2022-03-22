@@ -4,10 +4,8 @@ go 1.16
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/klauspost/compress v1.13.5 // indirect
 	github.com/mattn/go-runewidth v0.0.13 // indirect
-	github.com/minio/highwayhash v1.0.2 // indirect
-	github.com/nats-io/nats-server/v2 v2.7.2
+	github.com/nats-io/nats-server/v2 v2.7.4
 	github.com/nsf/termbox-go v1.1.1 // indirect
 	github.com/stretchr/testify v1.7.0 // indirect
 	gopkg.in/gizak/termui.v1 v1.0.0-20151021151108-e62b5929642a
