@@ -29,10 +29,10 @@ Connections: 10
 
 ## Install
 
-Can be installed via `go get`:
+Can be installed via `go install`:
 
 ```sh
-go get github.com/nats-io/nats-top
+go install github.com/nats-io/nats-top@latest
 ```
 
 and releases of the binary are also [available](https://github.com/nats-io/nats-top/releases)
