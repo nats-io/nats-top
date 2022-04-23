@@ -403,7 +403,6 @@ func generateParagraphCSV(
 		inMsgs, inBytes, inMsgsRate, inBytesRate,
 		outMsgs, outBytes, outMsgsRate, outBytesRate,
 	)
-
 	text += fmt.Sprintf("\n\nConnections Polled:[__DELIM__]%d\n", numConns)
 
 	displaySubs := engine.DisplaySubs
