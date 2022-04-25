@@ -15,7 +15,7 @@ import (
 	ui "gopkg.in/gizak/termui.v1"
 )
 
-const version = "0.5.0"
+const version = "0.5.2"
 
 var (
 	host              = flag.String("s", "127.0.0.1", "The nats server host.")
@@ -403,7 +403,6 @@ func generateParagraphCSV(
 		inMsgs, inBytes, inMsgsRate, inBytesRate,
 		outMsgs, outBytes, outMsgsRate, outBytesRate,
 	)
-
 	text += fmt.Sprintf("\n\nConnections Polled:[__DELIM__]%d\n", numConns)
 
 	displaySubs := engine.DisplaySubs
