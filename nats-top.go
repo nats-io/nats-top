@@ -15,20 +15,21 @@ import (
 	ui "gopkg.in/gizak/termui.v1"
 )
 
-const version = "0.5.2"
+const version = "0.5.3"
 
 var (
-	host              = flag.String("s", "127.0.0.1", "The nats server host.")
-	port              = flag.Int("m", 8222, "The NATS server monitoring port.")
-	conns             = flag.Int("n", 1024, "Maximum number of connections to poll.")
-	delay             = flag.Int("d", 1, "Refresh interval in seconds.")
-	sortBy            = flag.String("sort", "cid", "Value for which to sort by the connections.")
-	lookupDNS         = flag.Bool("lookup", false, "Enable client addresses DNS lookup.")
-	outputFile        = flag.String("o", "", "Save the very first nats-top snapshot to the given file and exit. If '-' is passed then the snapshot is printed the standard output.")
-	showVersion       = false
-	outputDelimiter   = flag.String("l", "", "Specifies the delimiter to use for the output file when the '-o' parameter is used. By default this option is unset which means that standard grid-like plain-text output will be used.")
-	displayRawBytes   = flag.Bool("b", false, "Display traffic in raw bytes.")
-	maxStatsRefreshes = flag.Int("r", -1, "Specifies the maximum number of times nats-top should refresh nats-stats before exiting.")
+	host                       = flag.String("s", "127.0.0.1", "The nats server host.")
+	port                       = flag.Int("m", 8222, "The NATS server monitoring port.")
+	conns                      = flag.Int("n", 1024, "Maximum number of connections to poll.")
+	delay                      = flag.Int("d", 1, "Refresh interval in seconds.")
+	sortBy                     = flag.String("sort", "cid", "Value for which to sort by the connections.")
+	lookupDNS                  = flag.Bool("lookup", false, "Enable client addresses DNS lookup.")
+	outputFile                 = flag.String("o", "", "Save the very first nats-top snapshot to the given file and exit. If '-' is passed then the snapshot is printed the standard output.")
+	showVersion                = false
+	outputDelimiter            = flag.String("l", "", "Specifies the delimiter to use for the output file when the '-o' parameter is used. By default this option is unset which means that standard grid-like plain-text output will be used.")
+	displayRawBytes            = flag.Bool("b", false, "Display traffic in raw bytes.")
+	maxStatsRefreshes          = flag.Int("r", -1, "Specifies the maximum number of times nats-top should refresh nats-stats before exiting.")
+	displaySubscriptionsColumn = flag.Bool("display-subscriptions-column", false, "Display subscriptions column upon launch.")
 
 	// Secure options
 	httpsPort     = flag.Int("ms", 0, "The NATS server secure monitoring port.")
@@ -40,7 +41,7 @@ var (
 
 const usageHelp = `
 usage: nats-top [-s server] [-m http_port] [-ms https_port] [-n num_connections] [-d delay_secs] [-r max] [-o FILE] [-l DELIMITER] [-sort by]
-                [-cert FILE] [-key FILE ][-cacert FILE] [-k] [-b] [-v|--version]
+                [-cert FILE] [-key FILE] [-cacert FILE] [-k] [-b] [-v|--version]
 
 `
 
@@ -101,6 +102,10 @@ func main() {
 		usage()
 	}
 	engine.SortOpt = sortOpt
+
+	if *displaySubscriptionsColumn {
+		engine.DisplaySubs = true
+	}
 
 	if *outputFile != "" {
 		saveStatsSnapshotToFile(engine, outputFile, *outputDelimiter)
@@ -488,14 +493,14 @@ func generateParagraphCSV(
 		connLineInfo = append(connLineInfo, conn.Uptime, conn.LastActivity)
 
 		if displaySubs {
-			subs := strings.Join(conn.Subs, "[__DELIM__]")
+			subs := "[__DELIM__]" + strings.Join(conn.Subs, "  ") // its safer to use a couple of whitespaces instead of commas to separate the subs because comma is reserved to separate entire columns!
 			connLineInfo = append(connLineInfo, subs)
 		}
 
-		text += fmt.Sprintf(connValues, connLineInfo...) // Add line to screen!
+		text += fmt.Sprintf(connValues, connLineInfo...)
 	}
 
-	text = strings.Replace(text, "[__DELIM__]", delimiter, -1)
+	text = strings.ReplaceAll(text, "[__DELIM__]", delimiter)
 
 	return text
 }
@@ -570,7 +575,6 @@ func StartUI(engine *top.Engine) {
 	// Flags for capturing options
 	waitingSortOption := false
 	waitingLimitOption := false
-	displaySubscriptions := false
 
 	optionBuf := ""
 	refreshOptionHeader := func() {
@@ -662,13 +666,7 @@ func StartUI(engine *top.Engine) {
 			}
 
 			if e.Type == ui.EventKey && e.Ch == 's' && !(waitingLimitOption || waitingSortOption) {
-				if displaySubscriptions {
-					displaySubscriptions = false
-					engine.DisplaySubs = false
-				} else {
-					displaySubscriptions = true
-					engine.DisplaySubs = true
-				}
+				engine.DisplaySubs = !engine.DisplaySubs
 			}
 
 			if e.Type == ui.EventKey && viewMode == HelpViewMode {
@@ -700,21 +698,11 @@ func StartUI(engine *top.Engine) {
 			}
 
 			if e.Type == ui.EventKey && (e.Ch == 'd') && !(waitingSortOption || waitingLimitOption) {
-				switch *lookupDNS {
-				case true:
-					*lookupDNS = false
-				case false:
-					*lookupDNS = true
-				}
+				*lookupDNS = !*lookupDNS
 			}
 
 			if e.Type == ui.EventKey && (e.Ch == 'b') && !(waitingSortOption || waitingLimitOption) {
-				switch *displayRawBytes {
-				case true:
-					*displayRawBytes = false
-				case false:
-					*displayRawBytes = true
-				}
+				*displayRawBytes = !*displayRawBytes
 			}
 
 			if e.Type == ui.EventResize {
