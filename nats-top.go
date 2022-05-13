@@ -25,7 +25,7 @@ var (
 	sortBy            = flag.String("sort", "cid", "Value for which to sort by the connections.")
 	lookupDNS         = flag.Bool("lookup", false, "Enable client addresses DNS lookup.")
 	outputFile        = flag.String("o", "", "Save the very first nats-top snapshot to the given file and exit. If '-' is passed then the snapshot is printed the standard output.")
-	showVersion       = flag.Bool("v", false, "Show nats-top version.")
+	showVersion       = false
 	outputDelimiter   = flag.String("l", "", "Specifies the delimiter to use for the output file when the '-o' parameter is used. By default this option is unset which means that standard grid-like plain-text output will be used.")
 	displayRawBytes   = flag.Bool("b", false, "Display traffic in raw bytes.")
 	maxStatsRefreshes = flag.Int("r", -1, "Specifies the maximum number of times nats-top should refresh nats-stats before exiting.")
@@ -40,7 +40,7 @@ var (
 
 const usageHelp = `
 usage: nats-top [-s server] [-m http_port] [-ms https_port] [-n num_connections] [-d delay_secs] [-r max] [-o FILE] [-l DELIMITER] [-sort by]
-                [-cert FILE] [-key FILE ][-cacert FILE] [-k] [-b]
+                [-cert FILE] [-key FILE ][-cacert FILE] [-k] [-b] [-v|--version]
 
 `
 
@@ -49,14 +49,16 @@ func usage() {
 }
 
 func init() {
+	flag.BoolVar(&showVersion, "v", false, "Same as --version.")
+	flag.BoolVar(&showVersion, "version", false, "Show nats-top version.")
+
 	log.SetFlags(0)
 	flag.Usage = usage
 	flag.Parse()
 }
 
 func main() {
-
-	if *showVersion {
+	if showVersion {
 		log.Printf("nats-top v%s", version)
 		os.Exit(0)
 	}
