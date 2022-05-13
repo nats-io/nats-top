@@ -497,10 +497,10 @@ func generateParagraphCSV(
 			connLineInfo = append(connLineInfo, subs)
 		}
 
-		text += fmt.Sprintf(connValues, connLineInfo...) // Add line to screen!
+		text += fmt.Sprintf(connValues, connLineInfo...)
 	}
 
-	text = strings.Replace(text, "[__DELIM__]", delimiter, -1)
+	text = strings.ReplaceAll(text, "[__DELIM__]", delimiter)
 
 	return text
 }
