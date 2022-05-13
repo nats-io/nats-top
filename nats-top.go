@@ -698,21 +698,11 @@ func StartUI(engine *top.Engine) {
 			}
 
 			if e.Type == ui.EventKey && (e.Ch == 'd') && !(waitingSortOption || waitingLimitOption) {
-				switch *lookupDNS {
-				case true:
-					*lookupDNS = false
-				case false:
-					*lookupDNS = true
-				}
+				*lookupDNS = !*lookupDNS
 			}
 
 			if e.Type == ui.EventKey && (e.Ch == 'b') && !(waitingSortOption || waitingLimitOption) {
-				switch *displayRawBytes {
-				case true:
-					*displayRawBytes = false
-				case false:
-					*displayRawBytes = true
-				}
+				*displayRawBytes = !*displayRawBytes
 			}
 
 			if e.Type == ui.EventResize {
