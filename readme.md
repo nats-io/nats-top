@@ -29,10 +29,10 @@ Connections: 10
 
 ## Install
 
-Can be installed via `go get`:
+Can be installed via `go install`:
 
 ```sh
-go get github.com/nats-io/nats-top
+go install github.com/nats-io/nats-top@latest
 ```
 
 and releases of the binary are also [available](https://github.com/nats-io/nats-top/releases)
@@ -40,7 +40,7 @@ and releases of the binary are also [available](https://github.com/nats-io/nats-
 ## Usage
 
 ```
-usage: nats-top [-s server] [-m http_port] [-ms https_port] [-n num_connections] [-d delay_secs] [-r max] [-o FILE] [-sort by]
+usage: nats-top [-s server] [-m http_port] [-ms https_port] [-n num_connections] [-d delay_secs] [-r max] [-o FILE] [-l DELIMITER] [-sort by]
                 [-cert FILE] [-key FILE ][-cacert FILE] [-k] [-b]
 ```
 
