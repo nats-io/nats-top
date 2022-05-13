@@ -18,17 +18,18 @@ import (
 const version = "0.5.2"
 
 var (
-	host              = flag.String("s", "127.0.0.1", "The nats server host.")
-	port              = flag.Int("m", 8222, "The NATS server monitoring port.")
-	conns             = flag.Int("n", 1024, "Maximum number of connections to poll.")
-	delay             = flag.Int("d", 1, "Refresh interval in seconds.")
-	sortBy            = flag.String("sort", "cid", "Value for which to sort by the connections.")
-	lookupDNS         = flag.Bool("lookup", false, "Enable client addresses DNS lookup.")
-	outputFile        = flag.String("o", "", "Save the very first nats-top snapshot to the given file and exit. If '-' is passed then the snapshot is printed the standard output.")
-	showVersion       = false
-	outputDelimiter   = flag.String("l", "", "Specifies the delimiter to use for the output file when the '-o' parameter is used. By default this option is unset which means that standard grid-like plain-text output will be used.")
-	displayRawBytes   = flag.Bool("b", false, "Display traffic in raw bytes.")
-	maxStatsRefreshes = flag.Int("r", -1, "Specifies the maximum number of times nats-top should refresh nats-stats before exiting.")
+	host                       = flag.String("s", "127.0.0.1", "The nats server host.")
+	port                       = flag.Int("m", 8222, "The NATS server monitoring port.")
+	conns                      = flag.Int("n", 1024, "Maximum number of connections to poll.")
+	delay                      = flag.Int("d", 1, "Refresh interval in seconds.")
+	sortBy                     = flag.String("sort", "cid", "Value for which to sort by the connections.")
+	lookupDNS                  = flag.Bool("lookup", false, "Enable client addresses DNS lookup.")
+	outputFile                 = flag.String("o", "", "Save the very first nats-top snapshot to the given file and exit. If '-' is passed then the snapshot is printed the standard output.")
+	showVersion                = false
+	outputDelimiter            = flag.String("l", "", "Specifies the delimiter to use for the output file when the '-o' parameter is used. By default this option is unset which means that standard grid-like plain-text output will be used.")
+	displayRawBytes            = flag.Bool("b", false, "Display traffic in raw bytes.")
+	maxStatsRefreshes          = flag.Int("r", -1, "Specifies the maximum number of times nats-top should refresh nats-stats before exiting.")
+	displaySubscriptionsColumn = flag.Bool("display-subscriptions-column", false, "Display subscriptions column upon launch.")
 
 	// Secure options
 	httpsPort     = flag.Int("ms", 0, "The NATS server secure monitoring port.")
@@ -40,7 +41,7 @@ var (
 
 const usageHelp = `
 usage: nats-top [-s server] [-m http_port] [-ms https_port] [-n num_connections] [-d delay_secs] [-r max] [-o FILE] [-l DELIMITER] [-sort by]
-                [-cert FILE] [-key FILE ][-cacert FILE] [-k] [-b] [-v|--version]
+                [-cert FILE] [-key FILE] [-cacert FILE] [-k] [-b] [-v|--version]
 
 `
 
@@ -76,6 +77,10 @@ func main() {
 	} else {
 		engine = top.NewEngine(*host, *port, *conns, *delay)
 		engine.SetupHTTP()
+	}
+
+	if *displaySubscriptionsColumn {
+		engine.DisplaySubs = true
 	}
 
 	if engine.Host == "" {
@@ -570,7 +575,7 @@ func StartUI(engine *top.Engine) {
 	// Flags for capturing options
 	waitingSortOption := false
 	waitingLimitOption := false
-	displaySubscriptions := false
+	displaySubscriptions := engine.DisplaySubs
 
 	optionBuf := ""
 	refreshOptionHeader := func() {
