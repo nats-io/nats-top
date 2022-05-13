@@ -15,7 +15,7 @@ import (
 	ui "gopkg.in/gizak/termui.v1"
 )
 
-const version = "0.5.2"
+const version = "0.5.3"
 
 var (
 	host                       = flag.String("s", "127.0.0.1", "The nats server host.")
@@ -79,10 +79,6 @@ func main() {
 		engine.SetupHTTP()
 	}
 
-	if *displaySubscriptionsColumn {
-		engine.DisplaySubs = true
-	}
-
 	if engine.Host == "" {
 		fmt.Fprintf(os.Stderr, "nats-top: invalid monitoring endpoint")
 		usage()
@@ -106,6 +102,10 @@ func main() {
 		usage()
 	}
 	engine.SortOpt = sortOpt
+
+	if *displaySubscriptionsColumn {
+		engine.DisplaySubs = true
+	}
 
 	if *outputFile != "" {
 		saveStatsSnapshotToFile(engine, outputFile, *outputDelimiter)
