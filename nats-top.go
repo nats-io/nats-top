@@ -575,7 +575,6 @@ func StartUI(engine *top.Engine) {
 	// Flags for capturing options
 	waitingSortOption := false
 	waitingLimitOption := false
-	displaySubscriptions := engine.DisplaySubs
 
 	optionBuf := ""
 	refreshOptionHeader := func() {
@@ -667,13 +666,7 @@ func StartUI(engine *top.Engine) {
 			}
 
 			if e.Type == ui.EventKey && e.Ch == 's' && !(waitingLimitOption || waitingSortOption) {
-				if displaySubscriptions {
-					displaySubscriptions = false
-					engine.DisplaySubs = false
-				} else {
-					displaySubscriptions = true
-					engine.DisplaySubs = true
-				}
+				engine.DisplaySubs = !engine.DisplaySubs
 			}
 
 			if e.Type == ui.EventKey && viewMode == HelpViewMode {
