@@ -493,7 +493,7 @@ func generateParagraphCSV(
 		connLineInfo = append(connLineInfo, conn.Uptime, conn.LastActivity)
 
 		if displaySubs {
-			subs := strings.Join(conn.Subs, "[__DELIM__]")
+			subs := "[__DELIM__]" + strings.Join(conn.Subs, "  ") // its safer to use a couple of whitespaces instead of commas to separate the subs because comma is reserved to separate entire columns!
 			connLineInfo = append(connLineInfo, subs)
 		}
 
