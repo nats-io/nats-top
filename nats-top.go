@@ -41,7 +41,7 @@ var (
 
 const usageHelp = `
 usage: nats-top [-s server] [-m http_port] [-ms https_port] [-n num_connections] [-d delay_secs] [-r max] [-o FILE] [-l DELIMITER] [-sort by]
-                [-cert FILE] [-key FILE] [-cacert FILE] [-k] [-b] [-v|--version]
+                [-cert FILE] [-key FILE] [-cacert FILE] [-k] [-b] [-v|--version] [-display-subscriptions-column]
 
 `
 
