@@ -304,10 +304,9 @@ func generateParagraphPlainText(
 	var connRows string
 	if displaySubs {
 		header = append(header, "SUBSCRIPTIONS")
-		connRows = fmt.Sprintf(connHeader, header...)
-	} else {
-		connRows = fmt.Sprintf(connHeader, header...)
 	}
+
+	connRows = fmt.Sprintf(connHeader, header...)
 
 	text += connRows // Add to screen!
 
@@ -450,8 +449,9 @@ func generateParagraphCSV(
 
 	header = append(header, standardHeaders...)
 	connHeader += strings.Join(defaultHeaderAndRowColumnsForCsv, "[__DELIM__]")
+
 	if displaySubs {
-		connHeader += "%s"
+		connHeader += "[__DELIM__]%s" // SUBSCRIPTIONS
 	}
 
 	connHeader += "\n" // ...LAST ACTIVITY
