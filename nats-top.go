@@ -29,7 +29,7 @@ var (
 	outputDelimiter            = flag.String("l", "", "Specifies the delimiter to use for the output file when the '-o' parameter is used. By default this option is unset which means that standard grid-like plain-text output will be used.")
 	displayRawBytes            = flag.Bool("b", false, "Display traffic in raw bytes.")
 	maxStatsRefreshes          = flag.Int("r", -1, "Specifies the maximum number of times nats-top should refresh nats-stats before exiting.")
-	displaySubscriptionsColumn = flag.Bool("display-subscriptions-column", false, "Display subscriptions column upon launch.")
+	displaySubscriptionsColumn = false
 
 	// Secure options
 	httpsPort     = flag.Int("ms", 0, "The NATS server secure monitoring port.")
@@ -41,7 +41,7 @@ var (
 
 const usageHelp = `
 usage: nats-top [-s server] [-m http_port] [-ms https_port] [-n num_connections] [-d delay_secs] [-r max] [-o FILE] [-l DELIMITER] [-sort by]
-                [-cert FILE] [-key FILE] [-cacert FILE] [-k] [-b] [-v|--version]
+                [-cert FILE] [-key FILE] [-cacert FILE] [-k] [-b] [-v|--version] [-u|--display-subscriptions-column]
 
 `
 
@@ -52,6 +52,9 @@ func usage() {
 func init() {
 	flag.BoolVar(&showVersion, "v", false, "Same as --version.")
 	flag.BoolVar(&showVersion, "version", false, "Show nats-top version.")
+
+	flag.BoolVar(&displaySubscriptionsColumn, "u", false, "Same as --display-subscriptions-column.")
+	flag.BoolVar(&displaySubscriptionsColumn, "display-subscriptions-column", false, "Display subscriptions-column upon launch.")
 
 	log.SetFlags(0)
 	flag.Usage = usage
@@ -103,7 +106,7 @@ func main() {
 	}
 	engine.SortOpt = sortOpt
 
-	if *displaySubscriptionsColumn {
+	if displaySubscriptionsColumn {
 		engine.DisplaySubs = true
 	}
 
@@ -304,10 +307,9 @@ func generateParagraphPlainText(
 	var connRows string
 	if displaySubs {
 		header = append(header, "SUBSCRIPTIONS")
-		connRows = fmt.Sprintf(connHeader, header...)
-	} else {
-		connRows = fmt.Sprintf(connHeader, header...)
 	}
+
+	connRows = fmt.Sprintf(connHeader, header...)
 
 	text += connRows // Add to screen!
 
@@ -450,8 +452,9 @@ func generateParagraphCSV(
 
 	header = append(header, standardHeaders...)
 	connHeader += strings.Join(defaultHeaderAndRowColumnsForCsv, "[__DELIM__]")
+
 	if displaySubs {
-		connHeader += "%s"
+		connHeader += "[__DELIM__]%s" // SUBSCRIPTIONS
 	}
 
 	connHeader += "\n" // ...LAST ACTIVITY

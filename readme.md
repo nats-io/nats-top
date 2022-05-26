@@ -41,7 +41,7 @@ and releases of the binary are also [available](https://github.com/nats-io/nats-
 
 ```
 usage: nats-top [-s server] [-m http_port] [-ms https_port] [-n num_connections] [-d delay_secs] [-r max] [-o FILE] [-l DELIMITER] [-sort by]
-                [-cert FILE] [-key FILE ][-cacert FILE] [-k] [-b]
+                [-cert FILE] [-key FILE ][-cacert FILE] [-k] [-b] [-v|--version] [-u|--display-subscriptions-column]
 ```
 
 - `-m http_port`, `-ms https_port`
@@ -83,6 +83,14 @@ usage: nats-top [-s server] [-m http_port] [-ms https_port] [-n num_connections]
 - `-b`
 
   Displays traffic in raw bytes.
+
+- `-v|--version`
+
+  Displays the version of nats-top.
+
+- `-u|--display-subscriptions-column`
+
+  Makes the subscriptions-column immediately visible upon launching nats-top.
 
 ## Commands
 
