@@ -27,6 +27,5 @@ _testmain.go
 /nats-top
 
 # VSCode
-
 .vscode/**
 *.code-workspace
