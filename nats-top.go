@@ -207,12 +207,15 @@ func generateParagraphPlainText(
 	inBytesVal := stats.Varz.InBytes
 	outBytesVal := stats.Varz.OutBytes
 	slowConsumers := stats.Varz.SlowConsumers
-	serverName := stats.Varz.Name
 	serverID := stats.Varz.ID
 
 	var serverVersion string
 	if stats.Varz.Version != "" {
 		serverVersion = stats.Varz.Version
+	}
+	var serverName string
+	if stats.Varz.Name != stats.Varz.ID {
+		serverName = stats.Varz.Name
 	}
 
 	mem := top.Psize(false, memVal) //memory is exempt from the rawbytes flag
