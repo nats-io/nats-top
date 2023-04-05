@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2022 The NATS Authors
+// Copyright (c) 2015-2023 The NATS Authors
 package main
 
 import (
@@ -15,7 +15,7 @@ import (
 	ui "gopkg.in/gizak/termui.v1"
 )
 
-const version = "0.5.3"
+const version = "0.6.0"
 
 var (
 	host                       = flag.String("s", "127.0.0.1", "The nats server host.")
@@ -177,10 +177,10 @@ func generateParagraph(
 }
 
 const (
-	DEFAULT_PADDING_SIZE = 2
-	DEFAULT_PADDING      = "  "
-
+	DEFAULT_PADDING_SIZE      = 2
+	DEFAULT_PADDING           = "  "
 	DEFAULT_HOST_PADDING_SIZE = 15
+	UI_HEADER_PREFIX          = "\033[1;1H\033[7;1H"
 )
 
 var (
@@ -585,7 +585,7 @@ func StartUI(engine *top.Engine) {
 
 	optionBuf := ""
 	refreshOptionHeader := func() {
-		clrline := "\033[1;1H\033[6;1H                  " // Need to mask what was typed before
+		clrline := fmt.Sprintf("%s                  ", UI_HEADER_PREFIX) // Need to mask what was typed before
 
 		clrline += "  "
 		for i := 0; i < len(optionBuf); i++ {
@@ -616,7 +616,7 @@ func StartUI(engine *top.Engine) {
 						go func() {
 							// Has to be at least of the same length as sort by header
 							emptyPadding := "       "
-							fmt.Printf("\033[1;1H\033[6;1Hinvalid order: %s%s", optionBuf, emptyPadding)
+							fmt.Printf("%sinvalid order: %s%s", UI_HEADER_PREFIX, optionBuf, emptyPadding)
 							waitingSortOption = false
 							time.Sleep(1 * time.Second)
 							refreshOptionHeader()
@@ -638,7 +638,7 @@ func StartUI(engine *top.Engine) {
 				} else {
 					optionBuf += string(e.Ch)
 				}
-				fmt.Printf("\033[1;1H\033[6;1Hsort by [%s]: %s", engine.SortOpt, optionBuf)
+				fmt.Printf("%ssort by [%s]: %s", UI_HEADER_PREFIX, engine.SortOpt, optionBuf)
 			}
 
 			if waitingLimitOption {
@@ -664,7 +664,7 @@ func StartUI(engine *top.Engine) {
 				} else {
 					optionBuf += string(e.Ch)
 				}
-				fmt.Printf("\033[1;1H\033[6;1Hlimit   [%d]: %s", engine.Conns, optionBuf)
+				fmt.Printf("%slimit   [%d]: %s", UI_HEADER_PREFIX, engine.Conns, optionBuf)
 			}
 
 			if e.Type == ui.EventKey && (e.Ch == 'q' || e.Key == ui.KeyCtrlC) {
@@ -683,12 +683,12 @@ func StartUI(engine *top.Engine) {
 			}
 
 			if e.Type == ui.EventKey && e.Ch == 'o' && !waitingLimitOption && viewMode == TopViewMode {
-				fmt.Printf("\033[1;1H\033[6;1Hsort by [%s]:", engine.SortOpt)
+				fmt.Printf("%ssort by [%s]:", UI_HEADER_PREFIX, engine.SortOpt)
 				waitingSortOption = true
 			}
 
 			if e.Type == ui.EventKey && e.Ch == 'n' && !waitingSortOption && viewMode == TopViewMode {
-				fmt.Printf("\033[1;1H\033[6;1Hlimit   [%d]:", engine.Conns)
+				fmt.Printf("%slimit   [%d]:", UI_HEADER_PREFIX, engine.Conns)
 				waitingLimitOption = true
 			}
 
