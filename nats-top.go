@@ -207,6 +207,8 @@ func generateParagraphPlainText(
 	inBytesVal := stats.Varz.InBytes
 	outBytesVal := stats.Varz.OutBytes
 	slowConsumers := stats.Varz.SlowConsumers
+	serverName := stats.Varz.Name
+	serverID := stats.Varz.ID
 
 	var serverVersion string
 	if stats.Varz.Version != "" {
@@ -224,13 +226,15 @@ func generateParagraphPlainText(
 	outBytesRate := top.Psize(*displayRawBytes, int64(stats.Rates.OutBytesRate))
 
 	info := "NATS server version %s (uptime: %s) %s\n"
-	info += "Server:\n"
+	info += "Server: %s\n"
+	info += "  ID:   %s\n"
 	info += "  Load: CPU:  %.1f%%  Memory: %s  Slow Consumers: %d\n"
 	info += "  In:   Msgs: %s  Bytes: %s  Msgs/Sec: %.1f  Bytes/Sec: %s\n"
 	info += "  Out:  Msgs: %s  Bytes: %s  Msgs/Sec: %.1f  Bytes/Sec: %s"
 
 	text := fmt.Sprintf(
 		info, serverVersion, uptime, stats.Error,
+		serverName, serverID,
 		cpu, mem, slowConsumers,
 		inMsgs, inBytes, inMsgsRate, inBytesRate,
 		outMsgs, outBytes, outMsgsRate, outBytesRate,
