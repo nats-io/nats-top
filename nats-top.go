@@ -356,8 +356,30 @@ func generateParagraphPlainText(
 		}
 
 		connLineInfo = append(connLineInfo, conn.NumSubs)
-		connLineInfo = append(connLineInfo, top.Psize(*displayRawBytes, int64(conn.Pending)), top.Psize(*displayRawBytes, conn.OutMsgs), top.Psize(*displayRawBytes, conn.InMsgs))
-		connLineInfo = append(connLineInfo, top.Psize(*displayRawBytes, conn.OutBytes), top.Psize(*displayRawBytes, conn.InBytes))
+
+		connLineInfo = append(connLineInfo, top.Psize(*displayRawBytes, int64(conn.Pending)))
+
+		if !engine.ShowRates {
+			connLineInfo = append(connLineInfo, top.Psize(*displayRawBytes, conn.OutMsgs), top.Psize(*displayRawBytes, conn.InMsgs))
+			connLineInfo = append(connLineInfo, top.Psize(*displayRawBytes, conn.OutBytes), top.Psize(*displayRawBytes, conn.InBytes))
+		} else {
+			var (
+				inMsgsPerSec   float64
+				outMsgsPerSec  float64
+				inBytesPerSec  float64
+				outBytesPerSec float64
+			)
+			crate, wasConnected := stats.Rates.Connections[conn.Cid]
+			if wasConnected {
+				outMsgsPerSec = crate.OutMsgsRate
+				inMsgsPerSec = crate.InMsgsRate
+				outBytesPerSec = crate.OutBytesRate
+				inBytesPerSec = crate.InBytesRate
+			}
+			connLineInfo = append(connLineInfo, top.Psize(*displayRawBytes, int64(outMsgsPerSec)), top.Psize(*displayRawBytes, int64(inMsgsPerSec)))
+			connLineInfo = append(connLineInfo, top.Psize(*displayRawBytes, int64(outBytesPerSec)), top.Psize(*displayRawBytes, int64(inBytesPerSec)))
+		}
+
 		connLineInfo = append(connLineInfo, conn.Lang, conn.Version)
 		connLineInfo = append(connLineInfo, conn.Uptime, conn.LastActivity)
 
@@ -670,6 +692,10 @@ func StartUI(engine *top.Engine) {
 				fmt.Printf("%slimit   [%d]: %s", UI_HEADER_PREFIX, engine.Conns, optionBuf)
 			}
 
+			if e.Type == ui.EventKey && e.Key == ui.KeySpace {
+				engine.ShowRates = !engine.ShowRates
+			}
+
 			if e.Type == ui.EventKey && (e.Ch == 'q' || e.Key == ui.KeyCtrlC) {
 				close(engine.ShutdownCh)
 				cleanExit()
@@ -759,6 +785,8 @@ s                Toggle displaying connection subscriptions.
 d                Toggle activating DNS address lookup for clients.
 
 b                Toggle displaying raw bytes.
+
+space            Toggle displaying rates per second in connections.
 
 q                Quit nats-top.
 

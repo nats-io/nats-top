@@ -28,6 +28,8 @@ type Engine struct {
 	ShutdownCh   chan struct{}
 	LastStats    *Stats
 	LastPollTime time.Time
+	ShowRates    bool
+	LastConnz    map[uint64]*server.ConnInfo
 }
 
 func NewEngine(host string, port int, conns int, delay int) *Engine {
@@ -38,6 +40,7 @@ func NewEngine(host string, port int, conns int, delay int) *Engine {
 		Delay:      delay,
 		StatsCh:    make(chan *Stats),
 		ShutdownCh: make(chan struct{}),
+		LastConnz:  make(map[uint64]*server.ConnInfo),
 	}
 }
 
@@ -185,6 +188,12 @@ func (engine *Engine) fetchStats() *Stats {
 	inBytesLastVal = inBytesVal
 	outBytesLastVal = outBytesVal
 
+	// Snapshot per sec metrics for connections.
+	connz := make(map[uint64]*server.ConnInfo)
+	for _, conn := range stats.Connz.Conns {
+		connz[conn.Cid] = conn
+	}
+
 	now := time.Now()
 	tdelta := now.Sub(engine.LastPollTime)
 
@@ -200,12 +209,33 @@ func (engine *Engine) fetchStats() *Stats {
 		OutMsgsRate:  outMsgsRate,
 		InBytesRate:  inBytesRate,
 		OutBytesRate: outBytesRate,
+		Connections:  make(map[uint64]*ConnRates),
 	}
+
+	// Measure per connection metrics.
+	for cid, conn := range connz {
+		cr := &ConnRates{
+			InMsgsRate:   0,
+			OutMsgsRate:  0,
+			InBytesRate:  0,
+			OutBytesRate: 0,
+		}
+		lconn, wasConnected := engine.LastConnz[cid]
+		if wasConnected {
+			cr.InMsgsRate = float64(conn.InMsgs - lconn.InMsgs)
+			cr.OutMsgsRate = float64(conn.OutMsgs - lconn.OutMsgs)
+			cr.InBytesRate = float64(conn.InBytes - lconn.InBytes)
+			cr.OutBytesRate = float64(conn.OutBytes - lconn.OutBytes)
+		}
+		rates.Connections[cid] = cr
+	}
+
 	stats.Rates = rates
 
 	// Snapshot stats.
 	engine.LastStats = stats
 	engine.LastPollTime = now
+	engine.LastConnz = connz
 
 	return stats
 }
@@ -261,6 +291,14 @@ type Stats struct {
 // Rates represents the tracked in/out msgs and bytes flow
 // from a NATS server.
 type Rates struct {
+	InMsgsRate   float64
+	OutMsgsRate  float64
+	InBytesRate  float64
+	OutBytesRate float64
+	Connections  map[uint64]*ConnRates
+}
+
+type ConnRates struct {
 	InMsgsRate   float64
 	OutMsgsRate  float64
 	InBytesRate  float64
