@@ -5,12 +5,12 @@ builds:
   - env:
       - CGO_ENABLED=0
       - GO111MODULE=on
+    flags:
+      - -trimpath
     goos:
       - linux
       - windows
       - darwin
-      # Need nats-server 2.2.0 released for FreeBSD:
-      ##- freebsd
     goarch:
       - amd64
       - arm64
