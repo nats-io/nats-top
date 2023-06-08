@@ -1,52 +1,56 @@
-before:
-  hooks:
-    - go mod download
+project_name: nats-top
+
+release:
+  draft: true
+  github:
+    owner: nats-io
+    name: nats-top
+
 builds:
   - env:
       - CGO_ENABLED=0
-      - GO111MODULE=on
     goos:
+      - darwin
       - linux
       - windows
-      - darwin
-      # Need nats-server 2.2.0 released for FreeBSD:
-      ##- freebsd
+      - freebsd
     goarch:
       - amd64
-      - arm64
       - arm
+      - arm64
+      - 386
+      - mips64le
+      - s390x
     goarm:
       - 6
       - 7
     ignore:
       - goos: darwin
         goarch: 386
-      # These copied from nats-server ignores; if that repo updates the
-      # pre-generated stuff needed for non-cgo cross-compile to FreeBSD, we can
-      # update here too:
-      ##- goos: freebsd
-      ##  goarch: arm
-      ##- goos: freebsd
-      ##  goarch: arm64
-      ##- goos: freebsd
-      ##  goarch: 386
-      # ... but only once nats-server 2.2.0 is released so we have cross-compile for FreeBSD at all
+      - goos: freebsd
+        goarch: arm
+      - goos: freebsd
+        goarch: arm64
+      - goos: freebsd
+        goarch: 386
 
 checksum:
-  name_template: 'SHA256SUMS'
-  algorithm: sha256
-
-snapshot:
-  name_template: "{{ .Tag }}-next"
+  name_template: 'checksums.txt'
 
 nfpms:
-  - file_name_template: '{{.ProjectName}}-{{.Tag}}-{{.Arch}}{{if .Arm}}{{.Arm}}{{end}}'
-    homepage:  https://nats.io
-    description: "Top(1) style utility for NATS"
-    maintainer: Waldemar Quevedo <wally@synadia.com>
-    license: MIT
-    vendor: "Synadia Communications, Inc"
-    formats:
+  - formats:
       - deb
       - rpm
-
+    file_name_template: >-
+        {{ .ProjectName }}-v{{ .Version }}-
+        {{- .Os }}-
+        {{- if eq .Arch "amd64" }}x86_64
+        {{- else if eq .Arch "386" }}i386
+        {{- else }}{{ .Arch }}{{ end }}
+        {{- if .Arm }}v{{ .Arm }}{{ end }}
+    bindir: /usr/local/bin
+    description: "Top(1) style utility for NATS"
+    vendor: nats.io
+    homepage: https://nats.io
+    license: MIT
+    maintainer: Synadia <info@synadia.com>

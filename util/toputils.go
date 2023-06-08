@@ -6,8 +6,9 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/nats-io/nats-server/v2/server"
@@ -71,7 +72,7 @@ func (engine *Engine) Request(path string) (interface{}, error) {
 		return nil, fmt.Errorf("could not get stats from server: %w", err)
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("could not read response body: %w", err)
 	}
@@ -244,7 +245,7 @@ func (engine *Engine) fetchStats() *Stats {
 func (engine *Engine) SetupHTTPS(caCertOpt, certOpt, keyOpt string, skipVerifyOpt bool) error {
 	tlsConfig := &tls.Config{}
 	if caCertOpt != "" {
-		caCert, err := ioutil.ReadFile(caCertOpt)
+		caCert, err := os.ReadFile(caCertOpt)
 		if err != nil {
 			return err
 		}
@@ -276,8 +277,6 @@ func (engine *Engine) SetupHTTPS(caCertOpt, certOpt, keyOpt string, skipVerifyOp
 func (engine *Engine) SetupHTTP() {
 	engine.HttpClient = &http.Client{}
 	engine.Uri = fmt.Sprintf("http://%s:%d", engine.Host, engine.Port)
-
-	return
 }
 
 // Stats represents the monitored data from a NATS server.
