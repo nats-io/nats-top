@@ -3,7 +3,7 @@ module github.com/nats-io/nats-top
 go 1.20
 
 require (
-	github.com/nats-io/nats-server/v2 v2.9.17
+	github.com/nats-io/nats-server/v2 v2.9.19
 	gopkg.in/gizak/termui.v1 v1.0.0-20151021151108-e62b5929642a
 )
 
@@ -18,7 +18,7 @@ require (
 	github.com/nsf/termbox-go v1.1.1 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/stretchr/testify v1.8.4 // indirect
-	golang.org/x/crypto v0.8.0 // indirect
-	golang.org/x/sys v0.7.0 // indirect
+	golang.org/x/crypto v0.9.0 // indirect
+	golang.org/x/sys v0.8.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 )

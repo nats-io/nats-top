@@ -1,17 +1,24 @@
+---
 project_name: nats-top
 
 release:
+  name_template: 'Release {{.Tag}}'
   draft: true
   github:
     owner: nats-io
     name: nats-top
 
 builds:
-  - env:
+  - id: nats-top
+    binary: nats-top
+    main: nats-top.go
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.ShortCommit}} -X main.date={{.Date}}
+    env:
       - CGO_ENABLED=0
     goos:
-      - darwin
       - linux
+      - darwin
       - windows
       - freebsd
     goarch:
