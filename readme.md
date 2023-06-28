@@ -1,6 +1,7 @@
 # nats-top
 
-[![MIT License](http://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](https://github.com/nats-io/nats-top/blob/main/LICENSE)[![Build Status](https://travis-ci.org/nats-io/nats-top.svg?branch=main)](http://travis-ci.org/nats-io/nats-top)[![GitHub release](http://img.shields.io/github/release/nats-io/nats-top.svg?style=flat-square)](https://github.com/nats-io/nats-top/releases)
+[![License][License-Image]][License-Url] ![Build][Build-Status-Image] [![Release][Release-Image]][Release-Url]
+
 
 `nats-top` is a `top`-like tool for monitoring NATS servers.
 
@@ -132,3 +133,9 @@ While in top view, it is possible to use the following commands:
 ## Demo
 
 ![nats-top](https://cloud.githubusercontent.com/assets/26195/12911060/901419e0-cec4-11e5-8384-e222a891e6bf.gif)
+
+[License-Url]: https://github.com/nats-io/nats-top/blob/main/LICENSE
+[License-Image]: http://img.shields.io/badge/license-MIT-blue.svg
+[Build-Status-Image]: https://img.shields.io/github/actions/workflow/status/nats-io/nats-top/test.yaml?branch=main
+[Release-Image]: http://img.shields.io/github/release/nats-io/nats-top.svg
+[Release-Url]: https://github.com/nats-io/nats-top/releases
