@@ -15,8 +15,6 @@ import (
 	ui "gopkg.in/gizak/termui.v1"
 )
 
-const version = "0.6.0"
-
 var (
 	host                       = flag.String("s", "127.0.0.1", "The nats server host.")
 	port                       = flag.Int("m", 8222, "The NATS server monitoring port.")
@@ -37,6 +35,8 @@ var (
 	keyOpt        = flag.String("key", "", "Client private key in case NATS server using TLS")
 	caCertOpt     = flag.String("cacert", "", "Root CA cert")
 	skipVerifyOpt = flag.Bool("k", false, "Skip verifying server certificate")
+
+	version = "0.0.0"
 )
 
 const usageHelp = `

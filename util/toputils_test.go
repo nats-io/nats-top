@@ -56,7 +56,8 @@ func TestFetchingStatz(t *testing.T) {
 	go func() {
 		conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", NATS_SERVER_TEST_PORT))
 		if err != nil {
-			t.Fatalf("could not create subcription to NATS: %s", err)
+			t.Errorf("could not create subcription to NATS: %s", err)
+			return
 		}
 		fmt.Fprintf(conn, "SUB hello.world  90\r\n")
 		time.Sleep(5 * time.Second)
@@ -198,7 +199,7 @@ func TestMonitorStats(t *testing.T) {
 	go func() {
 		err := engine.MonitorStats()
 		if err != nil {
-			t.Fatalf("Could not start info monitoring loop. expected no error, got: %v", err)
+			t.Errorf("Could not start info monitoring loop. expected no error, got: %v", err)
 		}
 	}()
 	defer close(engine.ShutdownCh)
@@ -228,7 +229,7 @@ func TestMonitoringTLSConnectionUsingRootCA(t *testing.T) {
 	go func() {
 		err := engine.MonitorStats()
 		if err != nil {
-			t.Fatalf("Could not start info monitoring loop. expected no error, got: %v", err)
+			t.Errorf("Could not start info monitoring loop. expected no error, got: %v", err)
 		}
 	}()
 	defer close(engine.ShutdownCh)
@@ -258,7 +259,7 @@ func TestMonitoringTLSConnectionUsingRootCAWithCerts(t *testing.T) {
 	go func() {
 		err := engine.MonitorStats()
 		if err != nil {
-			t.Fatalf("Could not start info monitoring loop. expected no error, got: %v", err)
+			t.Errorf("Could not start info monitoring loop. expected no error, got: %v", err)
 		}
 	}()
 	defer close(engine.ShutdownCh)
@@ -288,7 +289,7 @@ func TestMonitoringTLSConnectionUsingCertsAndInsecure(t *testing.T) {
 	go func() {
 		err := engine.MonitorStats()
 		if err != nil {
-			t.Fatalf("Could not start info monitoring loop. expected no error, got: %v", err)
+			t.Errorf("Could not start info monitoring loop. expected no error, got: %v", err)
 		}
 	}()
 	defer close(engine.ShutdownCh)
