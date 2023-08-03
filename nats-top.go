@@ -219,8 +219,8 @@ func generateParagraphPlainText(
 	}
 
 	mem := top.Psize(false, memVal) //memory is exempt from the rawbytes flag
-	inMsgs := top.Psize(*displayRawBytes, inMsgsVal)
-	outMsgs := top.Psize(*displayRawBytes, outMsgsVal)
+	inMsgs := top.Nsize(*displayRawBytes, inMsgsVal)
+	outMsgs := top.Nsize(*displayRawBytes, outMsgsVal)
 	inBytes := top.Psize(*displayRawBytes, inBytesVal)
 	outBytes := top.Psize(*displayRawBytes, outBytesVal)
 	inMsgsRate := stats.Rates.InMsgsRate
@@ -357,10 +357,10 @@ func generateParagraphPlainText(
 
 		connLineInfo = append(connLineInfo, conn.NumSubs)
 
-		connLineInfo = append(connLineInfo, top.Psize(*displayRawBytes, int64(conn.Pending)))
+		connLineInfo = append(connLineInfo, top.Nsize(*displayRawBytes, int64(conn.Pending)))
 
 		if !engine.ShowRates {
-			connLineInfo = append(connLineInfo, top.Psize(*displayRawBytes, conn.OutMsgs), top.Psize(*displayRawBytes, conn.InMsgs))
+			connLineInfo = append(connLineInfo, top.Nsize(*displayRawBytes, conn.OutMsgs), top.Nsize(*displayRawBytes, conn.InMsgs))
 			connLineInfo = append(connLineInfo, top.Psize(*displayRawBytes, conn.OutBytes), top.Psize(*displayRawBytes, conn.InBytes))
 		} else {
 			var (
@@ -376,7 +376,7 @@ func generateParagraphPlainText(
 				outBytesPerSec = crate.OutBytesRate
 				inBytesPerSec = crate.InBytesRate
 			}
-			connLineInfo = append(connLineInfo, top.Psize(*displayRawBytes, int64(outMsgsPerSec)), top.Psize(*displayRawBytes, int64(inMsgsPerSec)))
+			connLineInfo = append(connLineInfo, top.Nsize(*displayRawBytes, int64(outMsgsPerSec)), top.Nsize(*displayRawBytes, int64(inMsgsPerSec)))
 			connLineInfo = append(connLineInfo, top.Psize(*displayRawBytes, int64(outBytesPerSec)), top.Psize(*displayRawBytes, int64(inBytesPerSec)))
 		}
 
@@ -420,8 +420,8 @@ func generateParagraphCSV(
 	}
 
 	mem := top.Psize(false, memVal) //memory is exempt from the rawbytes flag
-	inMsgs := top.Psize(*displayRawBytes, inMsgsVal)
-	outMsgs := top.Psize(*displayRawBytes, outMsgsVal)
+	inMsgs := top.Nsize(*displayRawBytes, inMsgsVal)
+	outMsgs := top.Nsize(*displayRawBytes, outMsgsVal)
 	inBytes := top.Psize(*displayRawBytes, inBytesVal)
 	outBytes := top.Psize(*displayRawBytes, outBytesVal)
 	inMsgsRate := stats.Rates.InMsgsRate
@@ -519,7 +519,7 @@ func generateParagraphCSV(
 		connLineInfo = append(connLineInfo, conn.Cid)
 		connLineInfo = append(connLineInfo, conn.Name)
 		connLineInfo = append(connLineInfo, fmt.Sprintf("%d", conn.NumSubs))
-		connLineInfo = append(connLineInfo, top.Psize(*displayRawBytes, int64(conn.Pending)), top.Psize(*displayRawBytes, conn.OutMsgs), top.Psize(*displayRawBytes, conn.InMsgs))
+		connLineInfo = append(connLineInfo, top.Nsize(*displayRawBytes, int64(conn.Pending)), top.Nsize(*displayRawBytes, conn.OutMsgs), top.Nsize(*displayRawBytes, conn.InMsgs))
 		connLineInfo = append(connLineInfo, top.Psize(*displayRawBytes, conn.OutBytes), top.Psize(*displayRawBytes, conn.InBytes))
 		connLineInfo = append(connLineInfo, conn.Lang, conn.Version)
 		connLineInfo = append(connLineInfo, conn.Uptime, conn.LastActivity)
