@@ -308,7 +308,7 @@ const kibibyte = 1024
 const mebibyte = 1024 * 1024
 const gibibyte = 1024 * 1024 * 1024
 
-// Psize takes a float and returns a human readable string.
+// Psize takes a float and returns a human readable string (Used for bytes).
 func Psize(displayRawValue bool, s int64) string {
 	size := float64(s)
 
@@ -325,4 +325,27 @@ func Psize(displayRawValue bool, s int64) string {
 	}
 
 	return fmt.Sprintf("%.1fG", size/gibibyte)
+}
+
+const k = 1000
+const m = k * 1000
+const b = m * 1000
+const t = b * 1000
+
+// Nsize takes a float and returns a human readable string.
+func Nsize(displayRawValue bool, s int64) string {
+	size := float64(s)
+
+	switch {
+	case displayRawValue || size < k:
+		return fmt.Sprintf("%.0f", size)
+	case size < m:
+		return fmt.Sprintf("%.1fK", size/k)
+	case size < b:
+		return fmt.Sprintf("%.1fM", size/m)
+	case size < t:
+		return fmt.Sprintf("%.1fB", size/b)
+	default:
+		return fmt.Sprintf("%.1fT", size/t)
+	}
 }
