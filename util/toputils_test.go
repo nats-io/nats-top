@@ -28,6 +28,19 @@ func resetPreviousHTTPConnections() {
 	http.DefaultTransport = &http.Transport{}
 }
 
+// retryUntil keeps calling the function f until it returns true or the deadline d has been reached.
+func retryUntil(d time.Duration, f func() bool) bool {
+	deadline := time.Now().Add(d)
+
+	for time.Now().Before(deadline) {
+		if f() {
+			return true
+		}
+	}
+
+	return false
+}
+
 func TestFetchingStatz(t *testing.T) {
 	engine := &Engine{}
 	engine.Uri = fmt.Sprintf("http://%s:%d", "127.0.0.1", server.DEFAULT_HTTP_PORT)
@@ -52,6 +65,10 @@ func TestFetchingStatz(t *testing.T) {
 		t.Fatalf("Could not monitor number of cores. got: %v", got)
 	}
 
+	connected := make(chan struct{}) // Used to signal that the client has connected.
+	done := make(chan struct{})      // Used to exit the client goroutine.
+	defer close(done)
+
 	// Create simple subscription to nats-server test port to show subscriptions
 	go func() {
 		conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", NATS_SERVER_TEST_PORT))
@@ -59,26 +76,45 @@ func TestFetchingStatz(t *testing.T) {
 			t.Errorf("could not create subcription to NATS: %s", err)
 			return
 		}
+		defer conn.Close()
+
 		fmt.Fprintf(conn, "SUB hello.world  90\r\n")
-		time.Sleep(5 * time.Second)
-		conn.Close()
+		close(connected)
+		<-done
 	}()
-	time.Sleep(1 * time.Second)
+
+	// Wait for the client to connect.
+	select {
+	case <-connected:
+		t.Log("client connected successfully")
+	case <-time.After(2 * time.Second):
+		t.Fatal("client did not connect to the server in time")
+	}
 
 	var connz *server.Connz
-	result, err = engine.Request("/connz")
-	if err != nil {
-		t.Fatalf("Failed getting /connz: %v", err)
+
+	// Keep trying to get the connections.
+	gotConns := retryUntil(2*time.Second, func() bool {
+		result, err = engine.Request("/connz")
+		if err != nil {
+			t.Fatalf("Failed getting /connz: %v", err)
+		}
+
+		if connzVal, ok := result.(*server.Connz); ok {
+			connz = connzVal
+		}
+
+		return len(connz.Conns) > 0
+	})
+
+	if !gotConns {
+		t.Fatal("server did not get any connections in time")
 	}
 
-	if connzVal, ok := result.(*server.Connz); ok {
-		connz = connzVal
-	}
-
-	// Check that we got connections
+	// Check that we got exactly 1 connection
 	got = len(connz.Conns)
-	if got <= 0 {
-		t.Fatalf("Could not monitor with subscriptions option. expected non-nil conns, got: %v", got)
+	if got != 1 {
+		t.Fatalf("Could not monitor with subscriptions option. expected 1 conns, got: %v", got)
 	}
 
 	engine.DisplaySubs = true
@@ -93,11 +129,9 @@ func TestFetchingStatz(t *testing.T) {
 
 	// Check that we got subscriptions
 	got = len(connz.Conns[0].Subs)
-	if got <= 0 {
+	if got != 1 {
 		t.Fatalf("Could not monitor with client subscriptions. expected client with subscriptions, got: %v", got)
 	}
-
-	s.Shutdown()
 }
 
 func TestPsize(t *testing.T) {
