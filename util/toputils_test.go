@@ -1,4 +1,4 @@
-package toputils
+package toputils_test
 
 import (
 	"fmt"
@@ -10,6 +10,7 @@ import (
 
 	"github.com/nats-io/nats-server/v2/server"
 	server_test "github.com/nats-io/nats-server/v2/test"
+	top "github.com/nats-io/nats-top/util"
 )
 
 func runMonitorServer() *server.Server {
@@ -46,7 +47,7 @@ func TestFetchingStatz(t *testing.T) {
 	host := srv.MonitorAddr().IP.String()
 	port := srv.MonitorAddr().Port
 
-	engine := NewEngine(host, port, 10, 1)
+	engine := top.NewEngine(host, port, 10, 1)
 	engine.SetupHTTP()
 
 	var varz *server.Varz
@@ -136,6 +137,10 @@ func TestFetchingStatz(t *testing.T) {
 
 func TestPsize(t *testing.T) {
 
+	const kibibyte = 1024
+	const mebibyte = 1024 * 1024
+	const gibibyte = 1024 * 1024 * 1024
+
 	type Args struct {
 		displayRawBytes bool
 		input           int64
@@ -206,7 +211,7 @@ func TestPsize(t *testing.T) {
 
 	for name, testcase := range testcases {
 		t.Run(name, func(t *testing.T) {
-			got := Psize(testcase.args.displayRawBytes, testcase.args.input)
+			got := top.Psize(testcase.args.displayRawBytes, testcase.args.input)
 
 			if got != testcase.want {
 				t.Errorf("wanted %q, got %q", testcase.want, got)
@@ -301,7 +306,7 @@ func TestNsize(t *testing.T) {
 
 	for name, testcase := range testcases {
 		t.Run(name, func(t *testing.T) {
-			got := Nsize(testcase.args.displayRawBytes, testcase.args.input)
+			got := top.Nsize(testcase.args.displayRawBytes, testcase.args.input)
 
 			if got != testcase.want {
 				t.Errorf("wanted %q, got %q", testcase.want, got)
@@ -317,7 +322,7 @@ func TestMonitorStats(t *testing.T) {
 	host := srv.MonitorAddr().IP.String()
 	port := srv.MonitorAddr().Port
 
-	engine := NewEngine(host, port, 10, 1)
+	engine := top.NewEngine(host, port, 10, 1)
 	engine.SetupHTTP()
 
 	go func() {
@@ -347,7 +352,7 @@ func TestMonitoringTLSConnectionUsingRootCA(t *testing.T) {
 	host := srv.MonitorAddr().IP.String()
 	port := srv.MonitorAddr().Port
 
-	engine := NewEngine(host, port, 10, 1)
+	engine := top.NewEngine(host, port, 10, 1)
 	err := engine.SetupHTTPS("./test/ca.pem", "", "", false)
 	if err != nil {
 		t.Fatalf("Expected to be able to configure polling via HTTPS. Got: %s", err)
@@ -380,7 +385,7 @@ func TestMonitoringTLSConnectionUsingRootCAWithCerts(t *testing.T) {
 	host := srv.MonitorAddr().IP.String()
 	port := srv.MonitorAddr().Port
 
-	engine := NewEngine(host, port, 10, 1)
+	engine := top.NewEngine(host, port, 10, 1)
 	err := engine.SetupHTTPS("./test/ca.pem", "./test/client-cert.pem", "./test/client-key.pem", false)
 	if err != nil {
 		t.Fatalf("Expected to be able to configure polling via HTTPS. Got: %s", err)
@@ -413,7 +418,7 @@ func TestMonitoringTLSConnectionUsingCertsAndInsecure(t *testing.T) {
 	host := srv.MonitorAddr().IP.String()
 	port := srv.MonitorAddr().Port
 
-	engine := NewEngine(host, port, 10, 1)
+	engine := top.NewEngine(host, port, 10, 1)
 	err := engine.SetupHTTPS("", "./test/client-cert.pem", "./test/client-key.pem", true)
 	if err != nil {
 		t.Fatalf("Expected to be able to configure polling via HTTPS. Got: %s", err)
