@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -11,15 +12,12 @@ import (
 	server_test "github.com/nats-io/nats-server/v2/test"
 )
 
-// Borrowed from nats-server tests
-const NATS_SERVER_TEST_PORT = 11422
-
-func runMonitorServer(monitorPort int) *server.Server {
+func runMonitorServer() *server.Server {
 	resetPreviousHTTPConnections()
 	opts := server_test.DefaultTestOptions
-	opts.Host = "127.0.0.1"
-	opts.Port = NATS_SERVER_TEST_PORT
-	opts.HTTPPort = monitorPort
+	// Use random ports.
+	opts.Port = -1
+	opts.HTTPPort = -1
 
 	return server_test.RunServer(&opts)
 }
@@ -42,12 +40,14 @@ func retryUntil(d time.Duration, f func() bool) bool {
 }
 
 func TestFetchingStatz(t *testing.T) {
-	engine := &Engine{}
-	engine.Uri = fmt.Sprintf("http://%s:%d", "127.0.0.1", server.DEFAULT_HTTP_PORT)
-	engine.HttpClient = &http.Client{}
+	srv := runMonitorServer()
+	defer srv.Shutdown()
 
-	s := runMonitorServer(server.DEFAULT_HTTP_PORT)
-	defer s.Shutdown()
+	host := srv.MonitorAddr().IP.String()
+	port := srv.MonitorAddr().Port
+
+	engine := NewEngine(host, port, 10, 1)
+	engine.SetupHTTP()
 
 	var varz *server.Varz
 	result, err := engine.Request("/varz")
@@ -71,7 +71,7 @@ func TestFetchingStatz(t *testing.T) {
 
 	// Create simple subscription to nats-server test port to show subscriptions
 	go func() {
-		conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", NATS_SERVER_TEST_PORT))
+		conn, err := net.Dial("tcp", strings.TrimPrefix(srv.ClientURL(), "nats://"))
 		if err != nil {
 			t.Errorf("could not create subcription to NATS: %s", err)
 			return
@@ -311,10 +311,14 @@ func TestNsize(t *testing.T) {
 }
 
 func TestMonitorStats(t *testing.T) {
-	engine := NewEngine("127.0.0.1", server.DEFAULT_HTTP_PORT, 10, 1)
+	srv := runMonitorServer()
+	defer srv.Shutdown()
+
+	host := srv.MonitorAddr().IP.String()
+	port := srv.MonitorAddr().Port
+
+	engine := NewEngine(host, port, 10, 1)
 	engine.SetupHTTP()
-	s := runMonitorServer(server.DEFAULT_HTTP_PORT)
-	defer s.Shutdown()
 
 	go func() {
 		err := engine.MonitorStats()
@@ -340,7 +344,10 @@ func TestMonitoringTLSConnectionUsingRootCA(t *testing.T) {
 	srv, _ := server_test.RunServerWithConfig("./test/tls.conf")
 	defer srv.Shutdown()
 
-	engine := NewEngine("127.0.0.1", 8223, 10, 1)
+	host := srv.MonitorAddr().IP.String()
+	port := srv.MonitorAddr().Port
+
+	engine := NewEngine(host, port, 10, 1)
 	err := engine.SetupHTTPS("./test/ca.pem", "", "", false)
 	if err != nil {
 		t.Fatalf("Expected to be able to configure polling via HTTPS. Got: %s", err)
@@ -370,7 +377,10 @@ func TestMonitoringTLSConnectionUsingRootCAWithCerts(t *testing.T) {
 	srv, _ := server_test.RunServerWithConfig("./test/tls.conf")
 	defer srv.Shutdown()
 
-	engine := NewEngine("127.0.0.1", 8223, 10, 1)
+	host := srv.MonitorAddr().IP.String()
+	port := srv.MonitorAddr().Port
+
+	engine := NewEngine(host, port, 10, 1)
 	err := engine.SetupHTTPS("./test/ca.pem", "./test/client-cert.pem", "./test/client-key.pem", false)
 	if err != nil {
 		t.Fatalf("Expected to be able to configure polling via HTTPS. Got: %s", err)
@@ -400,7 +410,10 @@ func TestMonitoringTLSConnectionUsingCertsAndInsecure(t *testing.T) {
 	srv, _ := server_test.RunServerWithConfig("./test/tls.conf")
 	defer srv.Shutdown()
 
-	engine := NewEngine("127.0.0.1", 8223, 10, 1)
+	host := srv.MonitorAddr().IP.String()
+	port := srv.MonitorAddr().Port
+
+	engine := NewEngine(host, port, 10, 1)
 	err := engine.SetupHTTPS("", "./test/client-cert.pem", "./test/client-key.pem", true)
 	if err != nil {
 		t.Fatalf("Expected to be able to configure polling via HTTPS. Got: %s", err)
