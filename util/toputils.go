@@ -96,13 +96,18 @@ func (engine *Engine) Request(path string) (interface{}, error) {
 // MonitorStats is ran as a goroutine and takes options
 // which can modify how poll values then sends to channel.
 func (engine *Engine) MonitorStats() error {
+	// Initial fetch.
+	engine.StatsCh <- engine.fetchStats()
+
 	delay := time.Duration(engine.Delay) * time.Second
+	ticker := time.NewTicker(delay)
+	defer ticker.Stop()
 
 	for {
 		select {
 		case <-engine.ShutdownCh:
 			return nil
-		case <-time.After(delay):
+		case <-ticker.C:
 			engine.StatsCh <- engine.fetchStats()
 		}
 	}

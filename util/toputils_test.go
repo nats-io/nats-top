@@ -197,9 +197,9 @@ func TestNsize(t *testing.T) {
 		input           int64
 	}
 
-	testcases := map[string]struct{
-		args        Args
-		want        string
+	testcases := map[string]struct {
+		args Args
+		want string
 	}{
 		"given input 999 and display_raw_bytes false": {
 			args: Args{
@@ -285,7 +285,7 @@ func TestNsize(t *testing.T) {
 }
 
 func TestMonitorStats(t *testing.T) {
-	engine := NewEngine("127.0.0.1", server.DEFAULT_HTTP_PORT, 10, 1)
+	engine := NewEngine("127.0.0.1", server.DEFAULT_HTTP_PORT, 10, 5) // 5s delay
 	engine.SetupHTTP()
 	s := runMonitorServer(server.DEFAULT_HTTP_PORT)
 	defer s.Shutdown()
