@@ -141,37 +141,32 @@ func TestPsize(t *testing.T) {
 		input           int64
 	}
 
-	testcases := []struct {
-		description string
-		args        Args
-		want        string
+	testcases := map[string]struct {
+		args Args
+		want string
 	}{
-		{
-			description: "given input 1023 and display_raw_bytes false    expect return value string to be '1023'",
+		"given input 1023 and display_raw_bytes false": {
 			args: Args{
 				input:           int64(1023),
 				displayRawBytes: false,
 			},
 			want: "1023",
 		},
-		{
-			description: "given input kibibyte and display_raw_bytes false    expect return value string to be '1.0K'",
+		"given input kibibyte and display_raw_bytes false": {
 			args: Args{
 				input:           int64(kibibyte),
 				displayRawBytes: false,
 			},
 			want: "1.0K",
 		},
-		{
-			description: "given input mebibyte and display_raw_bytes false    expect return value string to be '1.0M'",
+		"given input mebibyte and display_raw_bytes false": {
 			args: Args{
 				input:           int64(mebibyte),
 				displayRawBytes: false,
 			},
 			want: "1.0M",
 		},
-		{
-			description: "given input gibibyte and display_raw_bytes false    expect return value string to be '1.0G'",
+		"given input gibibyte and display_raw_bytes false": {
 			args: Args{
 				input:           int64(gibibyte),
 				displayRawBytes: false,
@@ -179,32 +174,28 @@ func TestPsize(t *testing.T) {
 			want: "1.0G",
 		},
 
-		{
-			description: "given input 1023 and display_raw_bytes true    expect return value string to be '1023'",
+		"given input 1023 and display_raw_bytes true": {
 			args: Args{
 				input:           int64(1023),
 				displayRawBytes: true,
 			},
 			want: "1023",
 		},
-		{
-			description: "given input kibibyte and display_raw_bytes true    expect return value string to be '1048576'",
+		"given input kibibyte and display_raw_bytes true": {
 			args: Args{
 				input:           int64(kibibyte),
 				displayRawBytes: true,
 			},
 			want: fmt.Sprintf("%d", kibibyte),
 		},
-		{
-			description: "given input mebibyte and display_raw_bytes true    expect return value string to be '1048576'",
+		"given input mebibyte and display_raw_bytes true": {
 			args: Args{
 				input:           int64(mebibyte),
 				displayRawBytes: true,
 			},
 			want: fmt.Sprintf("%d", mebibyte),
 		},
-		{
-			description: "given input gibibyte and display_raw_bytes true    expect return value string to be '1073741824'",
+		"given input gibibyte and display_raw_bytes true": {
 			args: Args{
 				input:           int64(gibibyte),
 				displayRawBytes: true,
@@ -213,12 +204,12 @@ func TestPsize(t *testing.T) {
 		},
 	}
 
-	for _, testcase := range testcases {
-		t.Run(testcase.description, func(t *testing.T) {
+	for name, testcase := range testcases {
+		t.Run(name, func(t *testing.T) {
 			got := Psize(testcase.args.displayRawBytes, testcase.args.input)
 
 			if got != testcase.want {
-				t.Errorf("%s wanted %q, got %q", testcase.description, testcase.want, got)
+				t.Errorf("wanted %q, got %q", testcase.want, got)
 			}
 		})
 	}
@@ -231,9 +222,9 @@ func TestNsize(t *testing.T) {
 		input           int64
 	}
 
-	testcases := map[string]struct{
-		args        Args
-		want        string
+	testcases := map[string]struct {
+		args Args
+		want string
 	}{
 		"given input 999 and display_raw_bytes false": {
 			args: Args{
@@ -270,6 +261,7 @@ func TestNsize(t *testing.T) {
 			},
 			want: "1.0T",
 		},
+
 		"given input 999 and display_raw_bytes true": {
 			args: Args{
 				input:           int64(999),
