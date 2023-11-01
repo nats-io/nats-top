@@ -13,12 +13,12 @@ require (
 	github.com/mattn/go-runewidth v0.0.14 // indirect
 	github.com/minio/highwayhash v1.0.2 // indirect
 	github.com/nats-io/jwt/v2 v2.4.1 // indirect
-	github.com/nats-io/nkeys v0.4.4 // indirect
+	github.com/nats-io/nkeys v0.4.6 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/nsf/termbox-go v1.1.1 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/stretchr/testify v1.8.4 // indirect
-	golang.org/x/crypto v0.9.0 // indirect
-	golang.org/x/sys v0.8.0 // indirect
+	golang.org/x/crypto v0.14.0 // indirect
+	golang.org/x/sys v0.13.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 )
