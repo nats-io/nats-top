@@ -195,11 +195,10 @@ func (engine *Engine) fetchStats() *Stats {
 		connz[conn.Cid] = conn
 	}
 
-	now := time.Now()
-	tdelta := now.Sub(engine.LastPollTime)
-
 	// Calculate rates but the first time
 	if !isFirstTime {
+		tdelta := stats.Varz.Now.Sub(engine.LastStats.Varz.Now)
+
 		inMsgsRate = float64(inMsgsDelta) / tdelta.Seconds()
 		outMsgsRate = float64(outMsgsDelta) / tdelta.Seconds()
 		inBytesRate = float64(inBytesDelta) / tdelta.Seconds()
@@ -235,7 +234,7 @@ func (engine *Engine) fetchStats() *Stats {
 
 	// Snapshot stats.
 	engine.LastStats = stats
-	engine.LastPollTime = now
+	engine.LastPollTime = time.Now()
 	engine.LastConnz = connz
 
 	return stats
