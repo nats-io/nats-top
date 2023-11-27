@@ -1,25 +1,24 @@
-package toputils
+package toputils_test
 
 import (
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/nats-io/nats-server/v2/server"
 	server_test "github.com/nats-io/nats-server/v2/test"
+	top "github.com/nats-io/nats-top/util"
 )
 
-// Borrowed from nats-server tests
-const NATS_SERVER_TEST_PORT = 11422
-
-func runMonitorServer(monitorPort int) *server.Server {
+func runMonitorServer() *server.Server {
 	resetPreviousHTTPConnections()
 	opts := server_test.DefaultTestOptions
-	opts.Host = "127.0.0.1"
-	opts.Port = NATS_SERVER_TEST_PORT
-	opts.HTTPPort = monitorPort
+	// Use random ports.
+	opts.Port = -1
+	opts.HTTPPort = -1
 
 	return server_test.RunServer(&opts)
 }
@@ -28,13 +27,28 @@ func resetPreviousHTTPConnections() {
 	http.DefaultTransport = &http.Transport{}
 }
 
-func TestFetchingStatz(t *testing.T) {
-	engine := &Engine{}
-	engine.Uri = fmt.Sprintf("http://%s:%d", "127.0.0.1", server.DEFAULT_HTTP_PORT)
-	engine.HttpClient = &http.Client{}
+// retryUntil keeps calling the function f until it returns true or the deadline d has been reached.
+func retryUntil(d time.Duration, f func() bool) bool {
+	deadline := time.Now().Add(d)
 
-	s := runMonitorServer(server.DEFAULT_HTTP_PORT)
-	defer s.Shutdown()
+	for time.Now().Before(deadline) {
+		if f() {
+			return true
+		}
+	}
+
+	return false
+}
+
+func TestFetchingStatz(t *testing.T) {
+	srv := runMonitorServer()
+	defer srv.Shutdown()
+
+	host := srv.MonitorAddr().IP.String()
+	port := srv.MonitorAddr().Port
+
+	engine := top.NewEngine(host, port, 10, 1)
+	engine.SetupHTTP()
 
 	var varz *server.Varz
 	result, err := engine.Request("/varz")
@@ -52,33 +66,56 @@ func TestFetchingStatz(t *testing.T) {
 		t.Fatalf("Could not monitor number of cores. got: %v", got)
 	}
 
+	connected := make(chan struct{}) // Used to signal that the client has connected.
+	done := make(chan struct{})      // Used to exit the client goroutine.
+	defer close(done)
+
 	// Create simple subscription to nats-server test port to show subscriptions
 	go func() {
-		conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", NATS_SERVER_TEST_PORT))
+		conn, err := net.Dial("tcp", strings.TrimPrefix(srv.ClientURL(), "nats://"))
 		if err != nil {
 			t.Errorf("could not create subcription to NATS: %s", err)
 			return
 		}
+		defer conn.Close()
+
 		fmt.Fprintf(conn, "SUB hello.world  90\r\n")
-		time.Sleep(5 * time.Second)
-		conn.Close()
+		close(connected)
+		<-done
 	}()
-	time.Sleep(1 * time.Second)
+
+	// Wait for the client to connect.
+	select {
+	case <-connected:
+		t.Log("client connected successfully")
+	case <-time.After(2 * time.Second):
+		t.Fatal("client did not connect to the server in time")
+	}
 
 	var connz *server.Connz
-	result, err = engine.Request("/connz")
-	if err != nil {
-		t.Fatalf("Failed getting /connz: %v", err)
+
+	// Keep trying to get the connections.
+	gotConns := retryUntil(2*time.Second, func() bool {
+		result, err = engine.Request("/connz")
+		if err != nil {
+			t.Fatalf("Failed getting /connz: %v", err)
+		}
+
+		if connzVal, ok := result.(*server.Connz); ok {
+			connz = connzVal
+		}
+
+		return len(connz.Conns) > 0
+	})
+
+	if !gotConns {
+		t.Fatal("server did not get any connections in time")
 	}
 
-	if connzVal, ok := result.(*server.Connz); ok {
-		connz = connzVal
-	}
-
-	// Check that we got connections
+	// Check that we got exactly 1 connection
 	got = len(connz.Conns)
-	if got <= 0 {
-		t.Fatalf("Could not monitor with subscriptions option. expected non-nil conns, got: %v", got)
+	if got != 1 {
+		t.Fatalf("Could not monitor with subscriptions option. expected 1 conns, got: %v", got)
 	}
 
 	engine.DisplaySubs = true
@@ -93,51 +130,48 @@ func TestFetchingStatz(t *testing.T) {
 
 	// Check that we got subscriptions
 	got = len(connz.Conns[0].Subs)
-	if got <= 0 {
+	if got != 1 {
 		t.Fatalf("Could not monitor with client subscriptions. expected client with subscriptions, got: %v", got)
 	}
-
-	s.Shutdown()
 }
 
 func TestPsize(t *testing.T) {
+
+	const kibibyte = 1024
+	const mebibyte = 1024 * 1024
+	const gibibyte = 1024 * 1024 * 1024
 
 	type Args struct {
 		displayRawBytes bool
 		input           int64
 	}
 
-	testcases := []struct {
-		description string
-		args        Args
-		want        string
+	testcases := map[string]struct {
+		args Args
+		want string
 	}{
-		{
-			description: "given input 1023 and display_raw_bytes false    expect return value string to be '1023'",
+		"given input 1023 and display_raw_bytes false": {
 			args: Args{
 				input:           int64(1023),
 				displayRawBytes: false,
 			},
 			want: "1023",
 		},
-		{
-			description: "given input kibibyte and display_raw_bytes false    expect return value string to be '1.0K'",
+		"given input kibibyte and display_raw_bytes false": {
 			args: Args{
 				input:           int64(kibibyte),
 				displayRawBytes: false,
 			},
 			want: "1.0K",
 		},
-		{
-			description: "given input mebibyte and display_raw_bytes false    expect return value string to be '1.0M'",
+		"given input mebibyte and display_raw_bytes false": {
 			args: Args{
 				input:           int64(mebibyte),
 				displayRawBytes: false,
 			},
 			want: "1.0M",
 		},
-		{
-			description: "given input gibibyte and display_raw_bytes false    expect return value string to be '1.0G'",
+		"given input gibibyte and display_raw_bytes false": {
 			args: Args{
 				input:           int64(gibibyte),
 				displayRawBytes: false,
@@ -145,32 +179,28 @@ func TestPsize(t *testing.T) {
 			want: "1.0G",
 		},
 
-		{
-			description: "given input 1023 and display_raw_bytes true    expect return value string to be '1023'",
+		"given input 1023 and display_raw_bytes true": {
 			args: Args{
 				input:           int64(1023),
 				displayRawBytes: true,
 			},
 			want: "1023",
 		},
-		{
-			description: "given input kibibyte and display_raw_bytes true    expect return value string to be '1048576'",
+		"given input kibibyte and display_raw_bytes true": {
 			args: Args{
 				input:           int64(kibibyte),
 				displayRawBytes: true,
 			},
 			want: fmt.Sprintf("%d", kibibyte),
 		},
-		{
-			description: "given input mebibyte and display_raw_bytes true    expect return value string to be '1048576'",
+		"given input mebibyte and display_raw_bytes true": {
 			args: Args{
 				input:           int64(mebibyte),
 				displayRawBytes: true,
 			},
 			want: fmt.Sprintf("%d", mebibyte),
 		},
-		{
-			description: "given input gibibyte and display_raw_bytes true    expect return value string to be '1073741824'",
+		"given input gibibyte and display_raw_bytes true": {
 			args: Args{
 				input:           int64(gibibyte),
 				displayRawBytes: true,
@@ -179,12 +209,12 @@ func TestPsize(t *testing.T) {
 		},
 	}
 
-	for _, testcase := range testcases {
-		t.Run(testcase.description, func(t *testing.T) {
-			got := Psize(testcase.args.displayRawBytes, testcase.args.input)
+	for name, testcase := range testcases {
+		t.Run(name, func(t *testing.T) {
+			got := top.Psize(testcase.args.displayRawBytes, testcase.args.input)
 
 			if got != testcase.want {
-				t.Errorf("%s wanted %q, got %q", testcase.description, testcase.want, got)
+				t.Errorf("wanted %q, got %q", testcase.want, got)
 			}
 		})
 	}
@@ -236,6 +266,7 @@ func TestNsize(t *testing.T) {
 			},
 			want: "1.0T",
 		},
+
 		"given input 999 and display_raw_bytes true": {
 			args: Args{
 				input:           int64(999),
@@ -275,7 +306,7 @@ func TestNsize(t *testing.T) {
 
 	for name, testcase := range testcases {
 		t.Run(name, func(t *testing.T) {
-			got := Nsize(testcase.args.displayRawBytes, testcase.args.input)
+			got := top.Nsize(testcase.args.displayRawBytes, testcase.args.input)
 
 			if got != testcase.want {
 				t.Errorf("wanted %q, got %q", testcase.want, got)
@@ -285,10 +316,14 @@ func TestNsize(t *testing.T) {
 }
 
 func TestMonitorStats(t *testing.T) {
-	engine := NewEngine("127.0.0.1", server.DEFAULT_HTTP_PORT, 10, 5) // 5s delay
+	srv := runMonitorServer()
+	defer srv.Shutdown()
+
+	host := srv.MonitorAddr().IP.String()
+	port := srv.MonitorAddr().Port
+
+	engine := top.NewEngine(host, port, 10, 1)
 	engine.SetupHTTP()
-	s := runMonitorServer(server.DEFAULT_HTTP_PORT)
-	defer s.Shutdown()
 
 	go func() {
 		err := engine.MonitorStats()
@@ -314,7 +349,10 @@ func TestMonitoringTLSConnectionUsingRootCA(t *testing.T) {
 	srv, _ := server_test.RunServerWithConfig("./test/tls.conf")
 	defer srv.Shutdown()
 
-	engine := NewEngine("127.0.0.1", 8223, 10, 1)
+	host := srv.MonitorAddr().IP.String()
+	port := srv.MonitorAddr().Port
+
+	engine := top.NewEngine(host, port, 10, 1)
 	err := engine.SetupHTTPS("./test/ca.pem", "", "", false)
 	if err != nil {
 		t.Fatalf("Expected to be able to configure polling via HTTPS. Got: %s", err)
@@ -344,7 +382,10 @@ func TestMonitoringTLSConnectionUsingRootCAWithCerts(t *testing.T) {
 	srv, _ := server_test.RunServerWithConfig("./test/tls.conf")
 	defer srv.Shutdown()
 
-	engine := NewEngine("127.0.0.1", 8223, 10, 1)
+	host := srv.MonitorAddr().IP.String()
+	port := srv.MonitorAddr().Port
+
+	engine := top.NewEngine(host, port, 10, 1)
 	err := engine.SetupHTTPS("./test/ca.pem", "./test/client-cert.pem", "./test/client-key.pem", false)
 	if err != nil {
 		t.Fatalf("Expected to be able to configure polling via HTTPS. Got: %s", err)
@@ -374,7 +415,10 @@ func TestMonitoringTLSConnectionUsingCertsAndInsecure(t *testing.T) {
 	srv, _ := server_test.RunServerWithConfig("./test/tls.conf")
 	defer srv.Shutdown()
 
-	engine := NewEngine("127.0.0.1", 8223, 10, 1)
+	host := srv.MonitorAddr().IP.String()
+	port := srv.MonitorAddr().Port
+
+	engine := top.NewEngine(host, port, 10, 1)
 	err := engine.SetupHTTPS("", "./test/client-cert.pem", "./test/client-key.pem", true)
 	if err != nil {
 		t.Fatalf("Expected to be able to configure polling via HTTPS. Got: %s", err)
