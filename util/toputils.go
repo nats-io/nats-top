@@ -96,13 +96,18 @@ func (engine *Engine) Request(path string) (interface{}, error) {
 // MonitorStats is ran as a goroutine and takes options
 // which can modify how poll values then sends to channel.
 func (engine *Engine) MonitorStats() error {
+	// Initial fetch.
+	engine.StatsCh <- engine.fetchStats()
+
 	delay := time.Duration(engine.Delay) * time.Second
+	ticker := time.NewTicker(delay)
+	defer ticker.Stop()
 
 	for {
 		select {
 		case <-engine.ShutdownCh:
 			return nil
-		case <-time.After(delay):
+		case <-ticker.C:
 			engine.StatsCh <- engine.fetchStats()
 		}
 	}
@@ -195,11 +200,10 @@ func (engine *Engine) fetchStats() *Stats {
 		connz[conn.Cid] = conn
 	}
 
-	now := time.Now()
-	tdelta := now.Sub(engine.LastPollTime)
-
 	// Calculate rates but the first time
 	if !isFirstTime {
+		tdelta := stats.Varz.Now.Sub(engine.LastStats.Varz.Now)
+
 		inMsgsRate = float64(inMsgsDelta) / tdelta.Seconds()
 		outMsgsRate = float64(outMsgsDelta) / tdelta.Seconds()
 		inBytesRate = float64(inBytesDelta) / tdelta.Seconds()
@@ -235,7 +239,7 @@ func (engine *Engine) fetchStats() *Stats {
 
 	// Snapshot stats.
 	engine.LastStats = stats
-	engine.LastPollTime = now
+	engine.LastPollTime = time.Now()
 	engine.LastConnz = connz
 
 	return stats
