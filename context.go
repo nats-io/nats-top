@@ -10,7 +10,7 @@ import (
 )
 
 // withContext will load a context and set it's setting to the global
-// flag values: host
+// flag values: host, certOpt, keyOpt, caCertOpt
 func withContext(name string) {
 	if name == "" {
 		name = natscontext.SelectedContext()
@@ -28,6 +28,9 @@ func withContext(name string) {
 
 	// set the global flag values
 	*host = extractNatsHost(natsCtx.ServerURL())
+	*certOpt = natsCtx.Certificate()
+	*keyOpt = natsCtx.Key()
+	*caCertOpt = natsCtx.CA()
 }
 
 // serverURL transform nats//127.0.0.1:4222,nats://127.0.0.2:4222 to
