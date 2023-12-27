@@ -93,6 +93,10 @@ usage: nats-top [-s server] [-m http_port] [-ms https_port] [-n num_connections]
 
   Makes the subscriptions-column immediately visible upon launching nats-top.
 
+- `-c context_name`
+
+  Using a context name to run instances of nats-top easily while you have configured multiple contexts with `nats context` command. Using `nats context ls` to list the contexts configured. 
+
 ## Commands
 
 While in top view, it is possible to use the following commands:
