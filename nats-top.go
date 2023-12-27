@@ -36,12 +36,15 @@ var (
 	caCertOpt     = flag.String("cacert", "", "Root CA cert")
 	skipVerifyOpt = flag.Bool("k", false, "Skip verifying server certificate")
 
+	// Nats context options
+	contextName = flag.String("c", "", "The name of the context to use. If not specified, the currently selected context is used.")
+
 	version = "0.0.0"
 )
 
 const usageHelp = `
 usage: nats-top [-s server] [-m http_port] [-ms https_port] [-n num_connections] [-d delay_secs] [-r max] [-o FILE] [-l DELIMITER] [-sort by]
-                [-cert FILE] [-key FILE] [-cacert FILE] [-k] [-b] [-v|--version] [-u|--display-subscriptions-column]
+                [-cert FILE] [-key FILE] [-cacert FILE] [-k] [-b] [-v|--version] [-u|--display-subscriptions-column] [-c context_name]
 
 `
 
@@ -68,6 +71,8 @@ func main() {
 	}
 
 	var engine *top.Engine
+
+	withContext(*contextName)
 
 	// Use secure port if set explicitly, otherwise use http port by default
 	if *httpsPort != 0 {
@@ -144,7 +149,7 @@ func saveStatsSnapshotToFile(engine *top.Engine, outputFile *string, outputDelim
 		log.Fatalf("nats-top: failed to write stats-snapshot to output file '%s': %s\n", *outputFile, err)
 	}
 
-	f.Close() //no point to error check    process will exit anyway
+	f.Close() // no point to error check    process will exit anyway
 }
 
 // clearScreen tries to ensure resetting original state of screen
@@ -169,7 +174,7 @@ func generateParagraph(
 	outputDelimiter string,
 ) string {
 
-	if len(outputDelimiter) > 0 { //default
+	if len(outputDelimiter) > 0 { // default
 		return generateParagraphCSV(engine, stats, outputDelimiter)
 	}
 
@@ -218,7 +223,7 @@ func generateParagraphPlainText(
 		serverName = stats.Varz.Name
 	}
 
-	mem := top.Psize(false, memVal) //memory is exempt from the rawbytes flag
+	mem := top.Psize(false, memVal) // memory is exempt from the rawbytes flag
 	inMsgs := top.Nsize(*displayRawBytes, inMsgsVal)
 	outMsgs := top.Nsize(*displayRawBytes, outMsgsVal)
 	inBytes := top.Psize(*displayRawBytes, inBytesVal)
@@ -419,7 +424,7 @@ func generateParagraphCSV(
 		serverVersion = stats.Varz.Version
 	}
 
-	mem := top.Psize(false, memVal) //memory is exempt from the rawbytes flag
+	mem := top.Psize(false, memVal) // memory is exempt from the rawbytes flag
 	inMsgs := top.Nsize(*displayRawBytes, inMsgsVal)
 	outMsgs := top.Nsize(*displayRawBytes, outMsgsVal)
 	inBytes := top.Psize(*displayRawBytes, inBytesVal)
