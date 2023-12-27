@@ -2,11 +2,11 @@ package main
 
 import (
 	"fmt"
-
-	"github.com/nats-io/jsm.go/natscontext"
 	"net/url"
 	"os"
 	"strings"
+
+	"github.com/nats-io/jsm.go/natscontext"
 )
 
 // withContext will load a context and set it's setting to the global
