@@ -72,7 +72,10 @@ func main() {
 
 	var engine *top.Engine
 
-	withContext(*contextName)
+	// Use context if set explicitly or if host is not set, otherwise use host
+	if *host == "" || *contextName != "" {
+		withContext(*contextName)
+	}
 
 	// Use secure port if set explicitly, otherwise use http port by default
 	if *httpsPort != 0 {
