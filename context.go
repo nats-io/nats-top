@@ -16,13 +16,13 @@ func withContext(name string) {
 		name = natscontext.SelectedContext()
 	}
 	if name == "" {
-		fmt.Printf("nats-top: context name required\n")
+		fmt.Fprintf(os.Stderr, "nats-top: context name required\n")
 		return
 	}
 
 	natsCtx, err := natscontext.New(name, true)
 	if err != nil {
-		fmt.Printf("nats-top: error load context: %s\n", err)
+		fmt.Fprintf(os.Stderr, "nats-top: error loading context: %s\n", err)
 		return
 	}
 

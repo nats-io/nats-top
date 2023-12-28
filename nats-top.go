@@ -37,14 +37,14 @@ var (
 	skipVerifyOpt = flag.Bool("k", false, "Skip verifying server certificate")
 
 	// Nats context options
-	contextName = flag.String("c", "", "The name of the context to use. If not specified, the currently selected context is used.")
+	contextName = flag.String("context", "", "The name of the context to use. If not specified, the currently selected context is used.")
 
 	version = "0.0.0"
 )
 
 const usageHelp = `
 usage: nats-top [-s server] [-m http_port] [-ms https_port] [-n num_connections] [-d delay_secs] [-r max] [-o FILE] [-l DELIMITER] [-sort by]
-                [-cert FILE] [-key FILE] [-cacert FILE] [-k] [-b] [-v|--version] [-u|--display-subscriptions-column] [-c context_name]
+                [-cert FILE] [-key FILE] [-cacert FILE] [-k] [-b] [-v|--version] [-u|--display-subscriptions-column] [--context context_name]
 
 `
 
