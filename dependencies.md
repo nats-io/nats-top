@@ -15,5 +15,6 @@ This file lists the dependencies used in this repository.
 | github.com/nsf/termbox-go         | MIT          |
 | github.com/rivo/uniseg            | MIT          |
 | golang.org/x/crypto               | BSD-3-Clause |
+| golang.org/x/sys                  | BSD-3-Clause |
 | golang.org/x/time/rate            | BSD-3-Clause |
 | gopkg.in/gizak/termui.v1          | MIT          |
