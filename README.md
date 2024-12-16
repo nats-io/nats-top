@@ -8,7 +8,7 @@
 ```sh
 $ nats-top
 
-NATS server version 0.7.3 (uptime: 3m34s)
+NATS server version 0.7.4 (uptime: 3m34s)
 Server:
   Load: CPU:  58.3%  Memory: 8.6M  Slow Consumers: 0
   In:   Msgs: 568.7K  Bytes: 1.7M  Msgs/Sec: 13129.0  Bytes/Sec: 38.5K
