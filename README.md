@@ -30,13 +30,24 @@ Connections: 10
 
 ## Install
 
-Can be installed via `go install`:
+### Installation from the shell
+
+The following script will install the latest version of the nats cli on Linux and macOS:
+
+```sh
+curl -sf https://binaries.nats.dev/nats-io/nats-top@latest | sh
+```
+
+### Installation via go install
+
+`nats-top` can be installed directly via `go install`.
+To install the latest version:
 
 ```sh
 go install github.com/nats-io/nats-top@latest
 ```
 
-and releases of the binary are also [available](https://github.com/nats-io/nats-top/releases)
+RPM and Deb packages are also [published to GitHub](https://github.com/nats-io/nats-top/releases)
 
 ## Usage
 
