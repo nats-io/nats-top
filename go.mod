@@ -1,6 +1,6 @@
 module github.com/nats-io/nats-top
 
-go 1.23
+go 1.23.0
 
 require (
 	github.com/nats-io/nats-server/v2 v2.10.23
@@ -8,6 +8,7 @@ require (
 )
 
 require (
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/klauspost/compress v1.17.11 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/minio/highwayhash v1.0.3 // indirect
@@ -16,7 +17,8 @@ require (
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/nsf/termbox-go v1.1.1 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
-	golang.org/x/crypto v0.31.0 // indirect
-	golang.org/x/sys v0.28.0 // indirect
+	github.com/stretchr/testify v1.10.0 // indirect
+	golang.org/x/crypto v0.36.0 // indirect
+	golang.org/x/sys v0.31.0 // indirect
 	golang.org/x/time v0.8.0 // indirect
 )
