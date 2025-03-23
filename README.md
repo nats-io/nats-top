@@ -1,13 +1,14 @@
 # nats-top
 
-[![MIT License](http://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](https://github.com/nats-io/nats-top/blob/main/LICENSE)[![Build Status](https://travis-ci.org/nats-io/nats-top.svg?branch=main)](http://travis-ci.org/nats-io/nats-top)[![GitHub release](http://img.shields.io/github/release/nats-io/nats-top.svg?style=flat-square)](https://github.com/nats-io/nats-top/releases)
+[![License][License-Image]][License-Url] ![Build][Build-Status-Image] [![Release][Release-Image]][Release-Url]
+
 
 `nats-top` is a `top`-like tool for monitoring NATS servers.
 
 ```sh
 $ nats-top
 
-NATS server version 0.7.3 (uptime: 3m34s)
+NATS server version 0.7.4 (uptime: 3m34s)
 Server:
   Load: CPU:  58.3%  Memory: 8.6M  Slow Consumers: 0
   In:   Msgs: 568.7K  Bytes: 1.7M  Msgs/Sec: 13129.0  Bytes/Sec: 38.5K
@@ -29,13 +30,24 @@ Connections: 10
 
 ## Install
 
-Can be installed via `go install`:
+### Installation from the shell
+
+The following script will install the latest version of the nats cli on Linux and macOS:
+
+```sh
+curl -sf https://binaries.nats.dev/nats-io/nats-top@latest | sh
+```
+
+### Installation via go install
+
+`nats-top` can be installed directly via `go install`.
+To install the latest version:
 
 ```sh
 go install github.com/nats-io/nats-top@latest
 ```
 
-and releases of the binary are also [available](https://github.com/nats-io/nats-top/releases)
+RPM and Deb packages are also [published to GitHub](https://github.com/nats-io/nats-top/releases)
 
 ## Usage
 
@@ -132,3 +144,9 @@ While in top view, it is possible to use the following commands:
 ## Demo
 
 ![nats-top](https://cloud.githubusercontent.com/assets/26195/12911060/901419e0-cec4-11e5-8384-e222a891e6bf.gif)
+
+[License-Url]: https://github.com/nats-io/nats-top/blob/main/LICENSE
+[License-Image]: http://img.shields.io/badge/license-MIT-blue.svg
+[Build-Status-Image]: https://img.shields.io/github/actions/workflow/status/nats-io/nats-top/test.yaml?branch=main
+[Release-Image]: http://img.shields.io/github/release/nats-io/nats-top.svg
+[Release-Url]: https://github.com/nats-io/nats-top/releases

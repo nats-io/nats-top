@@ -6,8 +6,9 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/nats-io/nats-server/v2/server"
@@ -28,6 +29,8 @@ type Engine struct {
 	ShutdownCh   chan struct{}
 	LastStats    *Stats
 	LastPollTime time.Time
+	ShowRates    bool
+	LastConnz    map[uint64]*server.ConnInfo
 }
 
 func NewEngine(host string, port int, conns int, delay int) *Engine {
@@ -38,6 +41,7 @@ func NewEngine(host string, port int, conns int, delay int) *Engine {
 		Delay:      delay,
 		StatsCh:    make(chan *Stats),
 		ShutdownCh: make(chan struct{}),
+		LastConnz:  make(map[uint64]*server.ConnInfo),
 	}
 }
 
@@ -68,7 +72,7 @@ func (engine *Engine) Request(path string) (interface{}, error) {
 		return nil, fmt.Errorf("could not get stats from server: %w", err)
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("could not read response body: %w", err)
 	}
@@ -92,13 +96,18 @@ func (engine *Engine) Request(path string) (interface{}, error) {
 // MonitorStats is ran as a goroutine and takes options
 // which can modify how poll values then sends to channel.
 func (engine *Engine) MonitorStats() error {
+	// Initial fetch.
+	engine.StatsCh <- engine.fetchStats()
+
 	delay := time.Duration(engine.Delay) * time.Second
+	ticker := time.NewTicker(delay)
+	defer ticker.Stop()
 
 	for {
 		select {
 		case <-engine.ShutdownCh:
 			return nil
-		case <-time.After(delay):
+		case <-ticker.C:
 			engine.StatsCh <- engine.fetchStats()
 		}
 	}
@@ -185,11 +194,16 @@ func (engine *Engine) fetchStats() *Stats {
 	inBytesLastVal = inBytesVal
 	outBytesLastVal = outBytesVal
 
-	now := time.Now()
-	tdelta := now.Sub(engine.LastPollTime)
+	// Snapshot per sec metrics for connections.
+	connz := make(map[uint64]*server.ConnInfo)
+	for _, conn := range stats.Connz.Conns {
+		connz[conn.Cid] = conn
+	}
 
 	// Calculate rates but the first time
 	if !isFirstTime {
+		tdelta := stats.Varz.Now.Sub(engine.LastStats.Varz.Now)
+
 		inMsgsRate = float64(inMsgsDelta) / tdelta.Seconds()
 		outMsgsRate = float64(outMsgsDelta) / tdelta.Seconds()
 		inBytesRate = float64(inBytesDelta) / tdelta.Seconds()
@@ -200,12 +214,33 @@ func (engine *Engine) fetchStats() *Stats {
 		OutMsgsRate:  outMsgsRate,
 		InBytesRate:  inBytesRate,
 		OutBytesRate: outBytesRate,
+		Connections:  make(map[uint64]*ConnRates),
 	}
+
+	// Measure per connection metrics.
+	for cid, conn := range connz {
+		cr := &ConnRates{
+			InMsgsRate:   0,
+			OutMsgsRate:  0,
+			InBytesRate:  0,
+			OutBytesRate: 0,
+		}
+		lconn, wasConnected := engine.LastConnz[cid]
+		if wasConnected {
+			cr.InMsgsRate = float64(conn.InMsgs - lconn.InMsgs)
+			cr.OutMsgsRate = float64(conn.OutMsgs - lconn.OutMsgs)
+			cr.InBytesRate = float64(conn.InBytes - lconn.InBytes)
+			cr.OutBytesRate = float64(conn.OutBytes - lconn.OutBytes)
+		}
+		rates.Connections[cid] = cr
+	}
+
 	stats.Rates = rates
 
 	// Snapshot stats.
 	engine.LastStats = stats
-	engine.LastPollTime = now
+	engine.LastPollTime = time.Now()
+	engine.LastConnz = connz
 
 	return stats
 }
@@ -214,7 +249,7 @@ func (engine *Engine) fetchStats() *Stats {
 func (engine *Engine) SetupHTTPS(caCertOpt, certOpt, keyOpt string, skipVerifyOpt bool) error {
 	tlsConfig := &tls.Config{}
 	if caCertOpt != "" {
-		caCert, err := ioutil.ReadFile(caCertOpt)
+		caCert, err := os.ReadFile(caCertOpt)
 		if err != nil {
 			return err
 		}
@@ -246,8 +281,6 @@ func (engine *Engine) SetupHTTPS(caCertOpt, certOpt, keyOpt string, skipVerifyOp
 func (engine *Engine) SetupHTTP() {
 	engine.HttpClient = &http.Client{}
 	engine.Uri = fmt.Sprintf("http://%s:%d", engine.Host, engine.Port)
-
-	return
 }
 
 // Stats represents the monitored data from a NATS server.
@@ -265,13 +298,21 @@ type Rates struct {
 	OutMsgsRate  float64
 	InBytesRate  float64
 	OutBytesRate float64
+	Connections  map[uint64]*ConnRates
+}
+
+type ConnRates struct {
+	InMsgsRate   float64
+	OutMsgsRate  float64
+	InBytesRate  float64
+	OutBytesRate float64
 }
 
 const kibibyte = 1024
 const mebibyte = 1024 * 1024
 const gibibyte = 1024 * 1024 * 1024
 
-// Psize takes a float and returns a human readable string.
+// Psize takes a float and returns a human readable string (Used for bytes).
 func Psize(displayRawValue bool, s int64) string {
 	size := float64(s)
 
@@ -288,4 +329,27 @@ func Psize(displayRawValue bool, s int64) string {
 	}
 
 	return fmt.Sprintf("%.1fG", size/gibibyte)
+}
+
+const k = 1000
+const m = k * 1000
+const b = m * 1000
+const t = b * 1000
+
+// Nsize takes a float and returns a human readable string.
+func Nsize(displayRawValue bool, s int64) string {
+	size := float64(s)
+
+	switch {
+	case displayRawValue || size < k:
+		return fmt.Sprintf("%.0f", size)
+	case size < m:
+		return fmt.Sprintf("%.1fK", size/k)
+	case size < b:
+		return fmt.Sprintf("%.1fM", size/m)
+	case size < t:
+		return fmt.Sprintf("%.1fB", size/b)
+	default:
+		return fmt.Sprintf("%.1fT", size/t)
+	}
 }

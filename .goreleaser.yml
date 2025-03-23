@@ -1,52 +1,65 @@
-before:
-  hooks:
-    - go mod download
+version: 2
+project_name: nats-top
+
+release:
+  name_template: 'Release {{.Tag}}'
+  draft: true
+  github:
+    owner: nats-io
+    name: nats-top
+
 builds:
-  - env:
+  - id: nats-top
+    binary: nats-top
+    flags:
+    - -trimpath
+    main: nats-top.go
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.ShortCommit}} -X main.date={{.Date}}
+    env:
       - CGO_ENABLED=0
-      - GO111MODULE=on
     goos:
       - linux
-      - windows
       - darwin
-      # Need nats-server 2.2.0 released for FreeBSD:
-      ##- freebsd
+      - windows
+      - freebsd
     goarch:
       - amd64
-      - arm64
       - arm
+      - arm64
+      - 386
+      - mips64le
+      - s390x
     goarm:
       - 6
       - 7
     ignore:
       - goos: darwin
         goarch: 386
-      # These copied from nats-server ignores; if that repo updates the
-      # pre-generated stuff needed for non-cgo cross-compile to FreeBSD, we can
-      # update here too:
-      ##- goos: freebsd
-      ##  goarch: arm
-      ##- goos: freebsd
-      ##  goarch: arm64
-      ##- goos: freebsd
-      ##  goarch: 386
-      # ... but only once nats-server 2.2.0 is released so we have cross-compile for FreeBSD at all
+      - goos: freebsd
+        goarch: arm
+      - goos: freebsd
+        goarch: arm64
+      - goos: freebsd
+        goarch: 386
 
 checksum:
-  name_template: 'SHA256SUMS'
-  algorithm: sha256
-
-snapshot:
-  name_template: "{{ .Tag }}-next"
+  name_template: 'checksums.txt'
 
 nfpms:
-  - file_name_template: '{{.ProjectName}}-{{.Tag}}-{{.Arch}}{{if .Arm}}{{.Arm}}{{end}}'
-    homepage:  https://nats.io
+  - formats:
+    - deb
+    - rpm
+    file_name_template: >-
+        {{ .ProjectName }}-v{{ .Version }}-
+        {{- .Os }}-
+        {{- if eq .Arch "amd64" }}x86_amd64
+        {{- else if eq .Arch "386" }}i386
+        {{- else }}{{ .Arch }}{{ end }}
+        {{- if .Arm }}v{{ .Arm }}{{ end }}
+    bindir: /usr/local/bin
     description: "Top(1) style utility for NATS"
-    maintainer: Waldemar Quevedo <wally@synadia.com>
+    vendor: nats.io
+    homepage: https://nats.io
     license: MIT
-    vendor: "Synadia Communications, Inc"
-    formats:
-      - deb
-      - rpm
-
+    maintainer: Synadia <info@synadia.com>
