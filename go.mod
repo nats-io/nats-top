@@ -2,6 +2,8 @@ module github.com/nats-io/nats-top
 
 go 1.26.0
 
+toolchain go1.27.3
+
 require (
 	github.com/nats-io/nats-server/v2 v2.15.1
 	gopkg.in/gizak/termui.v1 v1.0.0-20151021151108-e62b5929642a
