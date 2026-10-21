@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -26,7 +27,7 @@ var (
 	showVersion                = false
 	outputDelimiter            = flag.String("l", "", "Specifies the delimiter to use for the output file when the '-o' parameter is used. By default this option is unset which means that standard grid-like plain-text output will be used.")
 	displayRawBytes            = flag.Bool("b", false, "Display traffic in raw bytes.")
-	maxStatsRefreshes          = flag.Int("r", -1, "Specifies the maximum number of times nats-top should refresh nats-stats before exiting.")
+	maxStatsRefreshes          = flag.Int("r", 0, "Specifies the maximum number of times nats-top should refresh nats-stats before exiting (0 for no limit).")
 	displaySubscriptionsColumn = false
 
 	// Secure options
@@ -37,16 +38,24 @@ var (
 	skipVerifyOpt = flag.Bool("k", false, "Skip verifying server certificate")
 
 	version = "0.0.0"
+	commit  string
+	date    string
 )
 
 const usageHelp = `
 usage: nats-top [-s server] [-m http_port] [-ms https_port] [-n num_connections] [-d delay_secs] [-r max] [-o FILE] [-l DELIMITER] [-sort by]
-                [-cert FILE] [-key FILE] [-cacert FILE] [-k] [-b] [-v|--version] [-u|--display-subscriptions-column]
+                [-cert FILE] [-key FILE] [-cacert FILE] [-k] [-b] [-lookup] [-v|--version] [-u|--display-subscriptions-column]
 
 `
 
 func usage() {
-	log.Fatalf(usageHelp)
+	fmt.Fprint(os.Stderr, usageHelp)
+	flag.PrintDefaults()
+}
+
+// validSort reports whether opt can be used to sort open connections.
+func validSort(opt server.SortOpt) bool {
+	return opt.IsValid() && opt != server.ByStop && opt != server.ByReason
 }
 
 func init() {
@@ -63,8 +72,28 @@ func init() {
 
 func main() {
 	if showVersion {
-		log.Printf("nats-top v%s", version)
+		// Builds via `go install` don't get the version from ldflags.
+		if bi, ok := debug.ReadBuildInfo(); ok && version == "0.0.0" {
+			version = strings.TrimPrefix(bi.Main.Version, "v")
+		}
+		info := "nats-top v" + version
+		if commit != "" {
+			info += ", commit " + commit
+		}
+		if date != "" {
+			info += ", built " + date
+		}
+		log.Print(info)
 		os.Exit(0)
+	}
+
+	if *delay < 1 {
+		log.Fatalf("nats-top: refresh interval must be at least 1 second")
+	}
+
+	sortOpt := server.SortOpt(*sortBy)
+	if !validSort(sortOpt) {
+		log.Fatalf("nats-top: invalid option to sort by: %s", sortOpt)
 	}
 
 	var engine *top.Engine
@@ -72,10 +101,8 @@ func main() {
 	// Use secure port if set explicitly, otherwise use http port by default
 	if *httpsPort != 0 {
 		engine = top.NewEngine(*host, *httpsPort, *conns, *delay)
-		err := engine.SetupHTTPS(*caCertOpt, *certOpt, *keyOpt, *skipVerifyOpt)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "nats-top: %s", err)
-			usage()
+		if err := engine.SetupHTTPS(*caCertOpt, *certOpt, *keyOpt, *skipVerifyOpt); err != nil {
+			log.Fatalf("nats-top: %s", err)
 		}
 	} else {
 		engine = top.NewEngine(*host, *port, *conns, *delay)
@@ -83,26 +110,16 @@ func main() {
 	}
 
 	if engine.Host == "" {
-		fmt.Fprintf(os.Stderr, "nats-top: invalid monitoring endpoint")
-		usage()
+		log.Fatalf("nats-top: invalid monitoring endpoint")
 	}
 
 	if engine.Port == 0 {
-		fmt.Fprintf(os.Stderr, "nats-top: invalid monitoring port")
-		usage()
+		log.Fatalf("nats-top: invalid monitoring port")
 	}
 
 	// Smoke test to abort in case can't connect to server since the beginning.
-	_, err := engine.Request("/varz")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "nats-top: /varz smoke test failed: %s", err)
-		usage()
-	}
-
-	sortOpt := server.SortOpt(*sortBy)
-	if !sortOpt.IsValid() {
-		fmt.Fprintf(os.Stderr, "nats-top: invalid option to sort by: %s\n", sortOpt)
-		usage()
+	if _, err := engine.Request("/varz"); err != nil {
+		log.Fatalf("nats-top: /varz smoke test failed: %s", err)
 	}
 	engine.SortOpt = sortOpt
 
@@ -115,8 +132,7 @@ func main() {
 		return
 	}
 
-	err = ui.Init()
-	if err != nil {
+	if err := ui.Init(); err != nil {
 		panic(err)
 	}
 	defer ui.Close()
@@ -135,16 +151,9 @@ func saveStatsSnapshotToFile(engine *top.Engine, outputFile *string, outputDelim
 		return
 	}
 
-	f, err := os.OpenFile(*outputFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
-	if err != nil {
-		log.Fatalf("nats-top: failed to open output file '%s': %s\n", *outputFile, err)
+	if err := os.WriteFile(*outputFile, []byte(text), 0644); err != nil {
+		log.Fatalf("nats-top: failed to write stats-snapshot to output file '%s': %s", *outputFile, err)
 	}
-
-	if _, err = f.WriteString(text); err != nil {
-		log.Fatalf("nats-top: failed to write stats-snapshot to output file '%s': %s\n", *outputFile, err)
-	}
-
-	f.Close() //no point to error check    process will exit anyway
 }
 
 // clearScreen tries to ensure resetting original state of screen
@@ -191,6 +200,27 @@ var (
 	defaultHeaderColumns = []string{"%-6s", "%-10s", "%-10s", "%-10s", "%-10s", "%-10s", "%-7s", "%-7s", "%-7s", "%-40s"} // Chopped: HOST CID NAME...
 	defaultRowColumns    = []string{"%-6d", "%-10s", "%-10s", "%-10s", "%-10s", "%-10s", "%-7s", "%-7s", "%-7s", "%-40s"}
 )
+
+// resolveHost returns the client's ip:port, or its reverse DNS name when lookups are enabled and succeed.
+func resolveHost(conn *server.ConnInfo) string {
+	hostPort := fmt.Sprintf("%s:%d", conn.IP, conn.Port)
+	if !*lookupDNS {
+		return hostPort
+	}
+
+	name, present := resolvedHosts[conn.IP]
+	if !present {
+		if addrs, err := net.LookupAddr(conn.IP); err == nil && len(addrs) > 0 {
+			name = addrs[0]
+		}
+		resolvedHosts[conn.IP] = name // Failed lookups are memoized too, to avoid retrying every poll
+	}
+
+	if name == "" {
+		return hostPort
+	}
+	return name
+}
 
 func generateParagraphPlainText(
 	engine *top.Engine,
@@ -250,30 +280,13 @@ func generateParagraphPlainText(
 	hostSize := DEFAULT_HOST_PADDING_SIZE
 
 	nameSize := 0 // Disable name unless we have seen one using it
-	for _, conn := range stats.Connz.Conns {
+	hosts := make([]string, len(stats.Connz.Conns))
+	for i, conn := range stats.Connz.Conns {
 		var size int
 
-		var hostname string
-		if *lookupDNS {
-			if addr, present := resolvedHosts[conn.IP]; !present { // Make a lookup for each one of the ips and memoize them for subsequent polls
-				addrs, err := net.LookupAddr(conn.IP)
-				if err == nil && len(addrs) > 0 && len(addrs[0]) > 0 {
-					hostname = addrs[0]
-					resolvedHosts[conn.IP] = hostname
-				} else {
-					// Otherwise just continue to use ip:port as resolved host
-					// can be an empty string even though there were no errors
-					hostname = fmt.Sprintf("%s:%d", conn.IP, conn.Port)
-					resolvedHosts[conn.IP] = hostname
-				}
-			} else {
-				hostname = addr
-			}
-		} else {
-			hostname = fmt.Sprintf("%s:%d", conn.IP, conn.Port)
-		}
+		hosts[i] = resolveHost(conn)
 
-		size = len(hostname) // host
+		size = len(hosts[i]) // host
 		if size > hostSize {
 			hostSize = size + DEFAULT_PADDING_SIZE
 		}
@@ -336,19 +349,10 @@ func generateParagraphPlainText(
 	}
 	connValues += "\n"
 
-	for _, conn := range stats.Connz.Conns {
-		var h string
-		if *lookupDNS {
-			if rh, present := resolvedHosts[conn.IP]; present {
-				h = rh
-			}
-		} else {
-			h = fmt.Sprintf("%s:%d", conn.IP, conn.Port)
-		}
-
+	for i, conn := range stats.Connz.Conns {
 		var connLine string // Build the info line
 		connLineInfo := make([]interface{}, 0)
-		connLineInfo = append(connLineInfo, h)
+		connLineInfo = append(connLineInfo, hosts[i])
 		connLineInfo = append(connLineInfo, conn.Cid)
 
 		if nameSize > 0 { // Name not included unless present
@@ -430,13 +434,14 @@ func generateParagraphCSV(
 	outBytesRate := top.Psize(*displayRawBytes, int64(stats.Rates.OutBytesRate))
 
 	info := "NATS server version[__DELIM__]%s[__DELIM__](uptime: %s)[__DELIM__]%s\n"
-	info += "Server:\n"
+	info += "Server:[__DELIM__]%s[__DELIM__]ID:[__DELIM__]%s\n"
 	info += "Load:[__DELIM__]CPU:[__DELIM__]%.1f%%[__DELIM__]Memory:[__DELIM__]%s[__DELIM__]Slow Consumers:[__DELIM__]%d\n"
 	info += "In:[__DELIM__]Msgs:[__DELIM__]%s[__DELIM__]Bytes:[__DELIM__]%s[__DELIM__]Msgs/Sec:[__DELIM__]%.1f[__DELIM__]Bytes/Sec:[__DELIM__]%s\n"
 	info += "Out:[__DELIM__]Msgs:[__DELIM__]%s[__DELIM__]Bytes:[__DELIM__]%s[__DELIM__]Msgs/Sec:[__DELIM__]%.1f[__DELIM__]Bytes/Sec:[__DELIM__]%s"
 
 	text := fmt.Sprintf(
 		info, serverVersion, uptime, stats.Error,
+		stats.Varz.Name, stats.Varz.ID,
 		cpu, mem, slowConsumers,
 		inMsgs, inBytes, inMsgsRate, inBytesRate,
 		outMsgs, outBytes, outMsgsRate, outBytesRate,
@@ -445,27 +450,6 @@ func generateParagraphCSV(
 	text += fmt.Sprintf("\n\nConnections Polled:[__DELIM__]%d\n", numConns)
 
 	displaySubs := engine.DisplaySubs
-	for _, conn := range stats.Connz.Conns {
-		if !*lookupDNS {
-			continue
-		}
-
-		_, present := resolvedHosts[conn.IP]
-		if present {
-			continue
-		}
-
-		addrs, err := net.LookupAddr(conn.IP)
-
-		hostname := ""
-		if err == nil && len(addrs) > 0 && len(addrs[0]) > 0 { // Make a lookup for each one of the ips and memoize them for subsequent polls
-			hostname = addrs[0]
-		} else { // Otherwise just continue to use ip:port as resolved host can be an empty string even though there were no errors
-			hostname = fmt.Sprintf("%s:%d", conn.IP, conn.Port)
-		}
-
-		resolvedHosts[conn.IP] = hostname
-	}
 
 	header := make([]interface{}, 0) // Dynamically add columns
 	connHeader := ""
@@ -505,17 +489,8 @@ func generateParagraphCSV(
 	connValues += "\n"
 
 	for _, conn := range stats.Connz.Conns {
-		var h string
-		if *lookupDNS {
-			if rh, present := resolvedHosts[conn.IP]; present {
-				h = rh
-			}
-		} else {
-			h = fmt.Sprintf("%s:%d", conn.IP, conn.Port)
-		}
-
 		connLineInfo := make([]interface{}, 0)
-		connLineInfo = append(connLineInfo, h)
+		connLineInfo = append(connLineInfo, resolveHost(conn))
 		connLineInfo = append(connLineInfo, conn.Cid)
 		connLineInfo = append(connLineInfo, conn.Name)
 		connLineInfo = append(connLineInfo, fmt.Sprintf("%d", conn.NumSubs))
@@ -635,7 +610,7 @@ func StartUI(engine *top.Engine) {
 				if e.Type == ui.EventKey && e.Key == ui.KeyEnter {
 
 					sortOpt := server.SortOpt(optionBuf)
-					if sortOpt.IsValid() {
+					if validSort(sortOpt) {
 						engine.SortOpt = sortOpt
 					} else {
 						go func() {
@@ -660,7 +635,7 @@ func StartUI(engine *top.Engine) {
 				if e.Type == ui.EventKey && len(optionBuf) > 0 && (e.Key == ui.KeyBackspace || e.Key == ui.KeyBackspace2) {
 					optionBuf = optionBuf[:len(optionBuf)-1]
 					refreshOptionHeader()
-				} else {
+				} else if e.Ch != 0 {
 					optionBuf += string(e.Ch)
 				}
 				fmt.Printf("%ssort by [%s]: %s", UI_HEADER_PREFIX, engine.SortOpt, optionBuf)
@@ -686,7 +661,7 @@ func StartUI(engine *top.Engine) {
 				if e.Type == ui.EventKey && len(optionBuf) > 0 && (e.Key == ui.KeyBackspace || e.Key == ui.KeyBackspace2) {
 					optionBuf = optionBuf[:len(optionBuf)-1]
 					refreshOptionHeader()
-				} else {
+				} else if e.Ch != 0 {
 					optionBuf += string(e.Ch)
 				}
 				fmt.Printf("%slimit   [%d]: %s", UI_HEADER_PREFIX, engine.Conns, optionBuf)
@@ -768,8 +743,8 @@ Command          Description
 
 o<option>        Set primary sort key to <option>.
 
-                 Option can be one of: {cid|subs|pending|msgs_to|msgs_from|
-                 bytes_to|bytes_from|idle|last}
+                 Option can be one of: {cid|start|subs|pending|msgs_to|
+                 msgs_from|bytes_to|bytes_from|idle|last|uptime|rtt}
 
                  This can be set in the command line too with -sort flag.
 
