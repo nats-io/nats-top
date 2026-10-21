@@ -7,14 +7,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/nats-io/nats-server/v2/server"
 )
 
 const DisplaySubscriptions = 1
+
+const requestTimeout = 5 * time.Second
 
 type Engine struct {
 	Host         string
@@ -79,8 +84,8 @@ func (engine *Engine) Request(path string) (interface{}, error) {
 
 	if resp.StatusCode != 200 {
 		end := bytes.IndexAny(body, "\r\n")
-		if end > 80 {
-			end = 80
+		if end < 0 || end > 80 {
+			end = min(len(body), 80)
 		}
 		return nil, fmt.Errorf("stats request failed %d: %q", resp.StatusCode, string(body[:end]))
 	}
@@ -96,19 +101,21 @@ func (engine *Engine) Request(path string) (interface{}, error) {
 // MonitorStats is ran as a goroutine and takes options
 // which can modify how poll values then sends to channel.
 func (engine *Engine) MonitorStats() error {
-	// Initial fetch.
-	engine.StatsCh <- engine.fetchStats()
-
 	delay := time.Duration(engine.Delay) * time.Second
 	ticker := time.NewTicker(delay)
 	defer ticker.Stop()
 
 	for {
 		select {
+		case engine.StatsCh <- engine.fetchStats():
 		case <-engine.ShutdownCh:
 			return nil
+		}
+
+		select {
 		case <-ticker.C:
-			engine.StatsCh <- engine.fetchStats()
+		case <-engine.ShutdownCh:
+			return nil
 		}
 	}
 }
@@ -201,13 +208,14 @@ func (engine *Engine) fetchStats() *Stats {
 	}
 
 	// Calculate rates but the first time
+	var secs float64
 	if !isFirstTime {
-		tdelta := stats.Varz.Now.Sub(engine.LastStats.Varz.Now)
+		secs = stats.Varz.Now.Sub(engine.LastStats.Varz.Now).Seconds()
 
-		inMsgsRate = float64(inMsgsDelta) / tdelta.Seconds()
-		outMsgsRate = float64(outMsgsDelta) / tdelta.Seconds()
-		inBytesRate = float64(inBytesDelta) / tdelta.Seconds()
-		outBytesRate = float64(outBytesDelta) / tdelta.Seconds()
+		inMsgsRate = float64(inMsgsDelta) / secs
+		outMsgsRate = float64(outMsgsDelta) / secs
+		inBytesRate = float64(inBytesDelta) / secs
+		outBytesRate = float64(outBytesDelta) / secs
 	}
 	rates := &Rates{
 		InMsgsRate:   inMsgsRate,
@@ -227,10 +235,10 @@ func (engine *Engine) fetchStats() *Stats {
 		}
 		lconn, wasConnected := engine.LastConnz[cid]
 		if wasConnected {
-			cr.InMsgsRate = float64(conn.InMsgs - lconn.InMsgs)
-			cr.OutMsgsRate = float64(conn.OutMsgs - lconn.OutMsgs)
-			cr.InBytesRate = float64(conn.InBytes - lconn.InBytes)
-			cr.OutBytesRate = float64(conn.OutBytes - lconn.OutBytes)
+			cr.InMsgsRate = float64(conn.InMsgs-lconn.InMsgs) / secs
+			cr.OutMsgsRate = float64(conn.OutMsgs-lconn.OutMsgs) / secs
+			cr.InBytesRate = float64(conn.InBytes-lconn.InBytes) / secs
+			cr.OutBytesRate = float64(conn.OutBytes-lconn.OutBytes) / secs
 		}
 		rates.Connections[cid] = cr
 	}
@@ -254,11 +262,17 @@ func (engine *Engine) SetupHTTPS(caCertOpt, certOpt, keyOpt string, skipVerifyOp
 			return err
 		}
 		caCertPool := x509.NewCertPool()
-		caCertPool.AppendCertsFromPEM(caCert)
+		if !caCertPool.AppendCertsFromPEM(caCert) {
+			return fmt.Errorf("no valid certificates found in %s", caCertOpt)
+		}
 		tlsConfig.RootCAs = caCertPool
 	}
 
-	if certOpt != "" && keyOpt != "" {
+	if (certOpt == "") != (keyOpt == "") {
+		return fmt.Errorf("client certificate and key must be provided together")
+	}
+
+	if certOpt != "" {
 		cert, err := tls.LoadX509KeyPair(certOpt, keyOpt)
 		if err != nil {
 			return err
@@ -270,17 +284,22 @@ func (engine *Engine) SetupHTTPS(caCertOpt, certOpt, keyOpt string, skipVerifyOp
 		tlsConfig.InsecureSkipVerify = true
 	}
 
-	transport := &http.Transport{TLSClientConfig: tlsConfig}
-	engine.HttpClient = &http.Client{Transport: transport}
-	engine.Uri = fmt.Sprintf("https://%s:%d", engine.Host, engine.Port)
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.TLSClientConfig = tlsConfig
+	engine.setup("https", transport)
 
 	return nil
 }
 
 // SetupHTTP sets up the http client and uri to use for polling.
 func (engine *Engine) SetupHTTP() {
-	engine.HttpClient = &http.Client{}
-	engine.Uri = fmt.Sprintf("http://%s:%d", engine.Host, engine.Port)
+	engine.setup("http", nil)
+}
+
+func (engine *Engine) setup(scheme string, transport http.RoundTripper) {
+	engine.HttpClient = &http.Client{Transport: transport, Timeout: requestTimeout}
+	// Trim brackets so both "::1" and "[::1]" work as IPv6 hosts.
+	engine.Uri = scheme + "://" + net.JoinHostPort(strings.Trim(engine.Host, "[]"), strconv.Itoa(engine.Port))
 }
 
 // Stats represents the monitored data from a NATS server.

@@ -53,8 +53,12 @@ RPM and Deb packages are also [published to GitHub](https://github.com/nats-io/n
 
 ```
 usage: nats-top [-s server] [-m http_port] [-ms https_port] [-n num_connections] [-d delay_secs] [-r max] [-o FILE] [-l DELIMITER] [-sort by]
-                [-cert FILE] [-key FILE ][-cacert FILE] [-k] [-b] [-v|--version] [-u|--display-subscriptions-column]
+                [-cert FILE] [-key FILE] [-cacert FILE] [-k] [-b] [-lookup] [-v|--version] [-u|--display-subscriptions-column]
 ```
+
+- `-s server`
+
+  Host of the NATS server to monitor (default: `127.0.0.1`).
 
 - `-m http_port`, `-ms https_port`
 
@@ -96,6 +100,10 @@ usage: nats-top [-s server] [-m http_port] [-ms https_port] [-n num_connections]
 
   Displays traffic in raw bytes.
 
+- `-lookup`
+
+  Enables reverse DNS lookup of client addresses.
+
 - `-v|--version`
 
   Displays the version of nats-top.
@@ -112,7 +120,7 @@ While in top view, it is possible to use the following commands:
 
   Set primary sort key to **[option]**:
 
-  Keyname may be one of: **{cid, subs, msgs_to, msgs_from, bytes_to, bytes_from, idle, last}**
+  Keyname may be one of: **{cid, start, subs, pending, msgs_to, msgs_from, bytes_to, bytes_from, idle, last, uptime, rtt}**
 
   This can be set in the command line too, e.g. `nats-top -sort bytes_to`
 
@@ -133,7 +141,15 @@ While in top view, it is possible to use the following commands:
 
   Toggle activating DNS address lookup for clients.
 
-- **?**
+- **b**
+
+  Toggle displaying raw bytes.
+
+- **space**
+
+  Toggle displaying rates per second in connections.
+
+- **?** or **h**
 
   Show help message with options.
 
